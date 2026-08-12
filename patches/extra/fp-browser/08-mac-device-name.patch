@@ -2,11 +2,15 @@
 
 --- a/net/base/network_interfaces_win.cc
 +++ b/net/base/network_interfaces_win.cc
-@@ -5,2 +5,3 @@
- #include "net/base/network_interfaces.h"
-
+@@ -13,6 +13,7 @@
+ #include "base/containers/heap_array.h"
+ #include "base/containers/span.h"
+ #include "base/files/file_path.h"
 +#include "base/fp_config/fp_config.h"
-@@ -202,5 +203,21 @@
+ #include "base/no_destructor.h"
+ #include "base/strings/escape.h"
+ #include "base/strings/string_util.h"
+@@ -202,6 +203,22 @@
      if (adapter->PhysicalAddressLength == mac_address->size()) {
        std::copy_n(reinterpret_cast<const uint8_t*>(adapter->PhysicalAddress),
                    mac_address->size(), mac_address->begin());
@@ -31,11 +35,14 @@
      }
 --- a/base/system/sys_info_win.cc
 +++ b/base/system/sys_info_win.cc
-@@ -5,3 +5,4 @@
- #include "base/system/sys_info.h"
-
+@@ -23,6 +23,7 @@
+ #include "base/byte_size.h"
+ #include "base/check.h"
+ #include "base/files/file_path.h"
 +#include "base/fp_config/fp_config.h"
- 
+ #include "base/not_fatal_until.h"
+ #include "base/notreached.h"
+ #include "base/numerics/safe_conversions.h"
 @@ -375,3 +377,6 @@
  std::string SysInfo::HardwareModelName() {
 +  if (std::optional<std::string> device_name = fp_config::GetString("device_name")) {
