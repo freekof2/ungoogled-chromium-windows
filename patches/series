@@ -34,3 +34,4 @@ extra/fp-browser/10-tls-fingerprint.patch
 extra/fp-browser/11-udp-over-socks5.patch
 extra/fp-browser/12-user-agent-hardware-mode-completion.patch
 extra/fp-browser/13-fp-config-chromium151-value-api.patch
+extra/fp-browser/14-ui-language-dnt.patch

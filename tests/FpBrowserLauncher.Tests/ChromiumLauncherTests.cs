@@ -53,6 +53,28 @@ public sealed class ChromiumLauncherTests
     }
 
     [Fact]
+    public void BuildCommandLineArguments_DoesNotMapRealUiLanguageToLangFlag()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "fp-launcher-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var store = new ProfileStore(root);
+            var launcher = new ChromiumLauncher(store, new AlwaysAliveProxyTester(), new ProcessTracker(), new LaunchSnapshotWriter(store));
+            var fingerprint = new FingerprintGenerator().Generate("p001");
+            fingerprint.UiLanguage = new ModeValue { Mode = "real", Value = "en-US" };
+
+            var args = launcher.BuildCommandLineArguments("p001", fingerprint);
+
+            Assert.DoesNotContain(args, arg => arg.StartsWith("--lang=", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void BuildCommandLineArguments_MapsFingerprintSettingsToChromiumFlags()
     {
         var root = Path.Combine(Path.GetTempPath(), "fp-launcher-tests", Guid.NewGuid().ToString("N"));

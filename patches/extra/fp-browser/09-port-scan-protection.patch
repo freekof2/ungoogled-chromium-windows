@@ -1,14 +1,18 @@
 # Fingerprint browser: local/private port scan protection.
+#
+# Keep the throttle in chrome/common because it is instantiated by both the
+# browser and renderer URLLoaderThrottle providers. This avoids making the
+# renderer target depend on a chrome/browser header.
 
 --- /dev/null
-+++ b/chrome/browser/fp_profile/fp_port_scan_throttle.h
-@@ -0,0 +1,44 @@
++++ b/chrome/common/fp_profile/fp_port_scan_throttle.h
+@@ -0,0 +1,45 @@
 +// Copyright 2026 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
 +
-+#ifndef CHROME_BROWSER_FP_PROFILE_FP_PORT_SCAN_THROTTLE_H_
-+#define CHROME_BROWSER_FP_PROFILE_FP_PORT_SCAN_THROTTLE_H_
++#ifndef CHROME_COMMON_FP_PROFILE_FP_PORT_SCAN_THROTTLE_H_
++#define CHROME_COMMON_FP_PROFILE_FP_PORT_SCAN_THROTTLE_H_
 +
 +#include "base/fp_config/fp_config.h"
 +#include "net/base/net_errors.h"
@@ -24,7 +28,7 @@
 +  ~FpPortScanThrottle() override = default;
 +
 +  void WillStartRequest(network::ResourceRequest* request,
-+                        bool* defer) override {
++                        bool*) override {
 +    if (!request) {
 +      return;
 +    }
@@ -35,41 +39,39 @@
 +    if (!url.is_valid() || !url.SchemeIsHTTPOrHTTPS()) {
 +      return;
 +    }
-+    int port = url.EffectiveIntPort();
++    const int port = url.EffectiveIntPort();
 +    if (fp_config::IsPrivateOrLocalHost(url.host_piece()) &&
-+        !fp_config::IsAllowedPort(port)) {
-+      delegate_->CancelWithError(net::ERR_BLOCKED_BY_CLIENT,
-+                                 "Blocked by fingerprint port scan protection");
++        !fp_config::IsAllowedPort(port) && delegate_) {
++      delegate_->CancelWithError(
++          net::ERR_BLOCKED_BY_CLIENT,
++          "Blocked by fingerprint port scan protection");
 +    }
 +  }
 +};
 +
 +}  // namespace fp_profile
 +
-+#endif  // CHROME_BROWSER_FP_PROFILE_FP_PORT_SCAN_THROTTLE_H_
++#endif  // CHROME_COMMON_FP_PROFILE_FP_PORT_SCAN_THROTTLE_H_
 --- a/chrome/browser/chrome_content_browser_client.cc
 +++ b/chrome/browser/chrome_content_browser_client.cc
 @@ -83,2 +83,3 @@
  #include "chrome/browser/favicon/favicon_utils.h"
-+#include "chrome/browser/fp_profile/fp_port_scan_throttle.h"
  #include "chrome/browser/font_family_cache.h"
++#include "chrome/common/fp_profile/fp_port_scan_throttle.h"
 --- a/chrome/browser/chrome_content_browser_client.cc
 +++ b/chrome/browser/chrome_content_browser_client.cc
-@@ -6053,3 +6055,4 @@
+@@ -6053,2 +6055,3 @@
    std::vector<std::unique_ptr<blink::URLLoaderThrottle>> result;
 +  result.push_back(std::make_unique<fp_profile::FpPortScanThrottle>());
-
    DCHECK(browser_context);
 --- a/chrome/renderer/url_loader_throttle_provider_impl.cc
 +++ b/chrome/renderer/url_loader_throttle_provider_impl.cc
-@@ -5,2 +5,3 @@
+@@ -5,1 +5,2 @@
  #include "chrome/renderer/url_loader_throttle_provider_impl.h"
-
-+#include "chrome/browser/fp_profile/fp_port_scan_throttle.h"
++#include "chrome/common/fp_profile/fp_port_scan_throttle.h"
 --- a/chrome/renderer/url_loader_throttle_provider_impl.cc
 +++ b/chrome/renderer/url_loader_throttle_provider_impl.cc
-@@ -153,4 +154,5 @@
+@@ -153,2 +153,3 @@
    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
    std::vector<std::unique_ptr<blink::URLLoaderThrottle>> throttles;
 +  throttles.push_back(std::make_unique<fp_profile::FpPortScanThrottle>());

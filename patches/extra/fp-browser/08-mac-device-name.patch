@@ -31,7 +31,7 @@
      }
 --- a/base/system/sys_info_win.cc
 +++ b/base/system/sys_info_win.cc
-@@ -5,2 +5,3 @@
+@@ -5,3 +5,4 @@
  #include "base/system/sys_info.h"
 
 +#include "base/fp_config/fp_config.h"

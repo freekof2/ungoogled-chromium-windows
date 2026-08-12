@@ -49,7 +49,9 @@ public sealed class ChromiumLauncher
     private static void AddFingerprintMappedFlags(List<string> args, FingerprintConfig fingerprint)
     {
         var uiLanguage = fingerprint.UiLanguage.Value;
-        if (!string.IsNullOrWhiteSpace(uiLanguage))
+        if (!string.Equals(fingerprint.UiLanguage.Mode, "real", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(fingerprint.UiLanguage.Mode, "default", StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(uiLanguage))
         {
             args.Add($"--lang={uiLanguage.Trim()}");
         }
