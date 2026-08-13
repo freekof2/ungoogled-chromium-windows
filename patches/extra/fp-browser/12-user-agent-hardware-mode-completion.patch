@@ -1,19 +1,20 @@
 # Fingerprint browser: user agent and hardware acceleration completion.
 
---- a/third_party/blink/renderer/core/frame/navigator_id.cc
-+++ b/third_party/blink/renderer/core/frame/navigator_id.cc
+--- a/third_party/blink/renderer/core/execution_context/navigator_base.cc
++++ b/third_party/blink/renderer/core/execution_context/navigator_base.cc
 @@ -5,2 +5,3 @@
- #include "third_party/blink/renderer/core/frame/navigator_id.h"
-
+ #include "third_party/blink/renderer/core/execution_context/navigator_base.h"
 +#include "base/fp_config/fp_config.h"
-@@ -52,4 +53,7 @@ String NavigatorID::userAgent() const {
-   if (!DomWindow())
-     return String();
-+  if (std::optional<std::string> user_agent = fp_config::UserAgent()) {
+ 
+@@ -48,4 +50,7 @@
+ String NavigatorBase::userAgent() const {
+   ExecutionContext* execution_context = GetExecutionContext();
++  if (const auto user_agent = fp_config::UserAgent()) {
 +    return String::FromUTF8(*user_agent);
 +  }
-   return DomWindow()->GetFrame()->Loader().UserAgent();
+   return execution_context ? execution_context->UserAgent() : String();
  }
+
 --- a/components/embedder_support/user_agent_utils.cc
 +++ b/components/embedder_support/user_agent_utils.cc
 @@ -5,2 +5,3 @@
