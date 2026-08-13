@@ -136,13 +136,10 @@
  }
 --- a/third_party/blink/renderer/modules/mediastream/media_devices.cc
 +++ b/third_party/blink/renderer/modules/mediastream/media_devices.cc
-@@ -7,5 +7,6 @@
- #include <algorithm>
- #include <utility>
+@@ -5,2 +5,3 @@
+ #include "third_party/blink/renderer/modules/mediastream/media_devices.h"
  
- #include "base/feature_list.h"
 +#include "base/fp_config/fp_config.h"
- #include "base/metrics/histogram_functions.h"
 @@ -562,3 +563,11 @@
  WrapPersistent(result_tracker), std::move(tracer)));
 +  if (fp_config::NoiseEnabled("media_devices")) {
