@@ -46,11 +46,13 @@
 +#endif  // BASE_FP_CONFIG_FP_NOISE_H_
 --- a/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc
 +++ b/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc
-@@ -5,2 +5,4 @@
- #include "third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.h"
-
+@@ -35,4 +35,6 @@
+ #include "base/byte_size.h"
+ #include "base/compiler_specific.h"
+ #include "base/feature_list.h"
 +#include "base/fp_config/fp_config.h"
 +#include "base/fp_config/fp_noise.h"
+ #include "base/memory/scoped_refptr.h"
 @@ -5342,2 +5344,6 @@
      ContextGL()->ReadPixels(x, y, width, height, format, type, data);
 +    if (fp_config::NoiseEnabled("webgl_image") && data) {
@@ -60,11 +62,12 @@
    }
 --- a/third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.cc
 +++ b/third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.cc
-@@ -5,2 +5,4 @@
- #include "third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.h"
-
+@@ -24,3 +24,5 @@
+ #include "base/check.h"
+ #include "base/check_op.h"
 +#include "base/fp_config/fp_config.h"
 +#include "base/fp_config/fp_noise.h"
+ #include "base/location.h"
 @@ -514,3 +516,7 @@
    }
 +  if (fp_config::NoiseEnabled("canvas") && image_data) {
@@ -75,11 +78,12 @@
    return image_data;
 --- a/third_party/blink/renderer/modules/webaudio/offline_audio_context.cc
 +++ b/third_party/blink/renderer/modules/webaudio/offline_audio_context.cc
-@@ -5,2 +5,4 @@
- #include "third_party/blink/renderer/modules/webaudio/offline_audio_context.h"
-
+@@ -27,3 +27,5 @@
+ #include "base/metrics/histogram_functions.h"
+ #include "base/metrics/histogram_macros.h"
 +#include "base/fp_config/fp_config.h"
 +#include "base/fp_config/fp_noise.h"
+ #include "media/base/audio_glitch_info.h"
 @@ -794,2 +796,12 @@
      complete_resolver_->Resolve(rendered_buffer);
 +    if (fp_config::NoiseEnabled("audio_context")) {
@@ -95,11 +99,11 @@
    } else {
 --- a/third_party/blink/renderer/core/dom/element.cc
 +++ b/third_party/blink/renderer/core/dom/element.cc
-@@ -5,2 +5,4 @@
- #include "third_party/blink/renderer/core/dom/element.h"
-
+@@ -34,2 +34,4 @@
+ #include "base/containers/adapters.h"
 +#include "base/fp_config/fp_config.h"
 +#include "base/fp_config/fp_noise.h"
+ #include "base/feature_list.h"
 @@ -3497,4 +3499,11 @@
    GetDocument().EnsurePaintLocationDataValidForNode(
        this, DocumentUpdateReason::kJavaScript);
@@ -115,10 +119,12 @@
  }
 --- a/third_party/blink/renderer/modules/speech/speech_synthesis.cc
 +++ b/third_party/blink/renderer/modules/speech/speech_synthesis.cc
-@@ -5,2 +5,3 @@
- #include "third_party/blink/renderer/modules/speech/speech_synthesis.h"
-
+@@ -29,4 +29,5 @@
+ #include <tuple>
+ 
+ #include "build/build_config.h"
 +#include "base/fp_config/fp_config.h"
+ #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 @@ -125,3 +126,8 @@
    voice_list_.clear();
 +  if (fp_config::NoiseEnabled("speech_voices") && voice_list_.size() > 4) {
@@ -130,10 +136,13 @@
  }
 --- a/third_party/blink/renderer/modules/mediastream/media_devices.cc
 +++ b/third_party/blink/renderer/modules/mediastream/media_devices.cc
-@@ -5,2 +5,3 @@
- #include "third_party/blink/renderer/modules/mediastream/media_devices.h"
-
+@@ -7,5 +7,6 @@
+ #include <algorithm>
+ #include <utility>
+ 
+ #include "base/feature_list.h"
 +#include "base/fp_config/fp_config.h"
+ #include "base/metrics/histogram_functions.h"
 @@ -562,3 +563,11 @@
  WrapPersistent(result_tracker), std::move(tracer)));
 +  if (fp_config::NoiseEnabled("media_devices")) {
