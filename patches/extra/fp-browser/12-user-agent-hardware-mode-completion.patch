@@ -2,15 +2,17 @@
 
 --- a/third_party/blink/renderer/core/execution_context/navigator_base.cc
 +++ b/third_party/blink/renderer/core/execution_context/navigator_base.cc
-@@ -5,2 +5,3 @@
+@@ -5,3 +5,5 @@
  #include "third_party/blink/renderer/core/execution_context/navigator_base.h"
++#include "base/containers/span.h"
 +#include "base/fp_config/fp_config.h"
  
+ #include "base/feature_list.h"
 @@ -48,4 +50,7 @@
  String NavigatorBase::userAgent() const {
    ExecutionContext* execution_context = GetExecutionContext();
 +  if (const auto user_agent = fp_config::UserAgent()) {
-+    return String::FromUTF8(*user_agent);
++    return String::FromUtf8(base::as_byte_span(*user_agent));
 +  }
    return execution_context ? execution_context->UserAgent() : String();
  }
