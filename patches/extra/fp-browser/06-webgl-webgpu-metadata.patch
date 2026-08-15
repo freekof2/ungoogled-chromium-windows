@@ -2,15 +2,17 @@
 
 --- a/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc
 +++ b/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc
-@@ -5,2 +5,3 @@
+@@ -26,3 +26,5 @@
  #include "third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.h"
-
++#include "base/containers/span.h"
 +#include "base/fp_config/fp_config.h"
+ 
+ #include <inttypes.h>
 @@ -4186,2 +4188,7 @@
      case WebGLDebugRendererInfo::kUnmaskedRendererWebgl:
 +      if (fp_config::ModeIs("webgl.mode", "custom")) {
 +        if (std::optional<std::string> renderer = fp_config::GetString("webgl.renderer")) {
-+          return WebGLAny(script_state, String::FromUTF8(*renderer));
++          return WebGLAny(script_state, String::FromUtf8(base::as_byte_span(*renderer)));
 +        }
 +      }
        if (ExtensionEnabled(kWebGLDebugRendererInfoName)) {
@@ -18,36 +20,40 @@
      case WebGLDebugRendererInfo::kUnmaskedVendorWebgl:
 +      if (fp_config::ModeIs("webgl.mode", "custom")) {
 +        if (std::optional<std::string> vendor = fp_config::GetString("webgl.vendor")) {
-+          return WebGLAny(script_state, String::FromUTF8(*vendor));
++          return WebGLAny(script_state, String::FromUtf8(base::as_byte_span(*vendor)));
 +        }
 +      }
        if (ExtensionEnabled(kWebGLDebugRendererInfoName)) {
 --- a/third_party/blink/renderer/modules/webgpu/gpu_adapter.cc
 +++ b/third_party/blink/renderer/modules/webgpu/gpu_adapter.cc
-@@ -5,2 +5,3 @@
+@@ -5,3 +5,5 @@
  #include "third_party/blink/renderer/modules/webgpu/gpu_adapter.h"
-
++#include "base/containers/span.h"
 +#include "base/fp_config/fp_config.h"
+ 
+ #include "services/metrics/public/cpp/ukm_builders.h"
 @@ -213,3 +214,12 @@
  GPUAdapterInfo* GPUAdapter::info() const {
 +  if (fp_config::ModeIs("webgpu.mode", "based_on_webgl")) {
 +    if (std::optional<std::string> vendor = fp_config::GetString("webgl.vendor")) {
-+      info_->setVendor(String::FromUTF8(*vendor));
++      info_->setVendor(String::FromUtf8(base::as_byte_span(*vendor)));
 +    }
 +    if (std::optional<std::string> renderer = fp_config::GetString("webgl.renderer")) {
-+      info_->setDescription(String::FromUTF8(*renderer));
-+      info_->setDevice(String::FromUTF8(*renderer));
++      info_->setDescription(String::FromUtf8(base::as_byte_span(*renderer)));
++      info_->setDevice(String::FromUtf8(base::as_byte_span(*renderer)));
 +    }
 +  }
    return info_.Get();
  }
 --- a/third_party/blink/renderer/modules/webgpu/gpu.cc
 +++ b/third_party/blink/renderer/modules/webgpu/gpu.cc
-@@ -5,2 +5,3 @@
+@@ -5,3 +5,5 @@
  #include "third_party/blink/renderer/modules/webgpu/gpu.h"
-
++#include "base/containers/span.h"
 +#include "base/fp_config/fp_config.h"
-@@ -611,4 +612,10 @@
+ 
+ #include <utility>
+@@ -402,6 +402,12 @@
  ScriptPromise<IDLNullable<GPUAdapter>> GPU::requestAdapter(
      ScriptState* script_state,
      const GPURequestAdapterOptions* options) {
@@ -58,3 +64,6 @@
 +    return promise;
 +  }
    // Remind developers when they are using WebGPU on unsupported platforms.
+   ExecutionContext* execution_context = GetExecutionContext();
+   if (execution_context &&
+       !base::FeatureList::IsEnabled(features::kWebGPUService)) {

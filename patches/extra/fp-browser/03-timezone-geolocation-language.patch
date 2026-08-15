@@ -2,9 +2,10 @@
 
 --- a/third_party/blink/renderer/core/frame/navigator_language.cc
 +++ b/third_party/blink/renderer/core/frame/navigator_language.cc
-@@ -5,4 +5,5 @@
+@@ -5,4 +5,6 @@
  #include "third_party/blink/renderer/core/frame/navigator_language.h"
  
++#include "base/containers/span.h"
 +#include "base/fp_config/fp_config.h"
  #include "base/command_line.h"
  #include "services/network/public/cpp/features.h"
@@ -18,13 +19,13 @@
 +  if (!configured_languages.empty()) {
 +    languages_.clear();
 +    for (const std::string& language : configured_languages) {
-+      languages_.push_back(String::FromUTF8(language));
++      languages_.push_back(String::FromUtf8(base::as_byte_span(language)));
 +    }
 +  } else if (std::optional<std::string> language =
 +                 fp_config::GetString("language.value");
 +             fp_config::ModeAllowsOverride("language.mode") && language) {
 +    languages_.clear();
-+    languages_.push_back(String::FromUTF8(*language));
++    languages_.push_back(String::FromUtf8(base::as_byte_span(*language)));
 +  }
    return languages_;
  }
@@ -77,8 +78,8 @@
 +    result->get_position()->timestamp = base::Time::Now();
 +  }
    if (result->is_position()) {
-    if (!ValidateGeoposition(*result->get_position())) {
-      return;
+     if (!ValidateGeoposition(*result->get_position())) {
+       return;
 --- a/components/permissions/contexts/geolocation_permission_context.cc
 +++ b/components/permissions/contexts/geolocation_permission_context.cc
 @@ -5,4 +5,5 @@
