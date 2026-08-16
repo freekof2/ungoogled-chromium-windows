@@ -72,8 +72,12 @@ async function run() {
         core.setOutput('finished', true);
     } else if (retCode === BUILD_INTERRUPTED_EXIT_CODE) {
         await new Promise(r => setTimeout(r, 5000));
-        await exec.exec('7z', ['a', '-tzip', 'C:\\ungoogled-chromium-windows\\artifacts.zip',
-            'C:\\ungoogled-chromium-windows\\build\\src', '-mx=3', '-mtc=on']);
+        const archiveRetCode = await exec.exec('7z', ['a', '-tzip', 'C:\\ungoogled-chromium-windows\\artifacts.zip',
+            'C:\\ungoogled-chromium-windows\\build\\src', '-mx=3', '-mtc=on'], {
+            ignoreReturnCode: true
+        });
+        if (archiveRetCode > 1)
+            throw new Error(`Checkpoint archive failed with 7z exit code ${archiveRetCode}`);
         let checkpointUploaded = false;
         for (let i = 0; i < 5; ++i) {
             try {
