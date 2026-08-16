@@ -13,42 +13,43 @@ async function run() {
     const from_artifact = core.getBooleanInput('from_artifact', {required: true});
     const x86 = core.getBooleanInput('x86', {required: false})
     const arm = core.getBooleanInput('arm', {required: false})
-    console.log(`finished: ${finished}, artifact: ${from_artifact}`);
+    const buildJobs = core.getInput('build-jobs', {required: true});
+    const stage = Number.parseInt(core.getInput('stage', {required: true}), 10);
+    if (!Number.isInteger(stage) || stage < 1)
+        throw new Error(`Invalid stage: ${stage}`);
+    const checkpointName = `build-checkpoint-${stage}`;
+    const previousCheckpointName = stage > 1 ? `build-checkpoint-${stage - 1}` : null;
+    console.log(`finished: ${finished}, artifact: ${from_artifact}, jobs: ${buildJobs}, stage: ${stage}`);
     if (finished) {
         core.setOutput('finished', true);
         return;
     }
 
     const artifact = new DefaultArtifactClient();
-    const artifactName = x86 ? 'build-artifact-x86' : (arm ? 'build-artifact-arm' : 'build-artifact');
 
     if (from_artifact) {
-        const artifactInfo = await artifact.getArtifact(artifactName);
+        const artifactInfo = await artifact.getArtifact(previousCheckpointName);
         await artifact.downloadArtifact(artifactInfo.artifact.id, {path: 'C:\\ungoogled-chromium-windows\\build'});
         await exec.exec('7z', ['x', 'C:\\ungoogled-chromium-windows\\build\\artifacts.zip',
             '-oC:\\ungoogled-chromium-windows\\build', '-y']);
         await io.rmRF('C:\\ungoogled-chromium-windows\\build\\artifacts.zip');
     }
 
-    const args = ['build.py', '--ci', '-j', '2']
+    const args = ['build.py', '--ci', '-j', buildJobs]
     if (x86)
         args.push('--x86')
     if (arm)
         args.push('--arm')
-    await exec.exec('python', ['-m', 'pip', 'install', 'httplib2==0.22.0'], {
-        cwd: 'C:\\ungoogled-chromium-windows',
-        ignoreReturnCode: true
-    });
     const retCode = await exec.exec('python', args, {
         cwd: 'C:\\ungoogled-chromium-windows',
         ignoreReturnCode: true
     });
     if (retCode === 0) {
-        core.setOutput('finished', true);
         const globber = await glob.create('C:\\ungoogled-chromium-windows\\build\\ungoogled-chromium*',
             {matchDirectories: false});
         let packageList = await globber.glob();
         const finalArtifactName = x86 ? 'chromium-x86' : (arm ? 'chromium-arm' : 'chromium');
+        let finalArtifactUploaded = false;
         for (let i = 0; i < 5; ++i) {
             try {
                 await artifact.deleteArtifact(finalArtifactName);
@@ -58,6 +59,7 @@ async function run() {
             try {
                 await artifact.uploadArtifact(finalArtifactName, packageList,
                     'C:\\ungoogled-chromium-windows\\build', {retentionDays: 4, compressionLevel: 0});
+                finalArtifactUploaded = true;
                 break;
             } catch (e) {
                 console.error(`Upload artifact failed: ${e}`);
@@ -65,24 +67,38 @@ async function run() {
                 await new Promise(r => setTimeout(r, 10000));
             }
         }
+        if (!finalArtifactUploaded)
+            throw new Error(`Could not upload final artifact ${finalArtifactName}`);
+        core.setOutput('finished', true);
     } else if (retCode === BUILD_INTERRUPTED_EXIT_CODE) {
         await new Promise(r => setTimeout(r, 5000));
         await exec.exec('7z', ['a', '-tzip', 'C:\\ungoogled-chromium-windows\\artifacts.zip',
-            'C:\\ungoogled-chromium-windows\\build\\src', '-mx=3', '-mtc=on'], {ignoreReturnCode: true});
+            'C:\\ungoogled-chromium-windows\\build\\src', '-mx=3', '-mtc=on']);
+        let checkpointUploaded = false;
         for (let i = 0; i < 5; ++i) {
             try {
-                await artifact.deleteArtifact(artifactName);
+                await artifact.deleteArtifact(checkpointName);
             } catch (e) {
                 // ignored
             }
             try {
-                await artifact.uploadArtifact(artifactName, ['C:\\ungoogled-chromium-windows\\artifacts.zip'],
+                await artifact.uploadArtifact(checkpointName, ['C:\\ungoogled-chromium-windows\\artifacts.zip'],
                     'C:\\ungoogled-chromium-windows', {retentionDays: 4, compressionLevel: 0});
+                checkpointUploaded = true;
                 break;
             } catch (e) {
-                console.error(`Upload artifact failed: ${e}`);
+                console.error(`Upload checkpoint failed: ${e}`);
                 // Wait 10 seconds between the attempts
                 await new Promise(r => setTimeout(r, 10000));
+            }
+        }
+        if (!checkpointUploaded)
+            throw new Error(`Could not upload checkpoint ${checkpointName}`);
+        if (previousCheckpointName) {
+            try {
+                await artifact.deleteArtifact(previousCheckpointName);
+            } catch (e) {
+                console.warn(`Could not delete old checkpoint ${previousCheckpointName}: ${e}`);
             }
         }
         core.setOutput('finished', false);
