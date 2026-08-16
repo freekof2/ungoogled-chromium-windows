@@ -136,12 +136,18 @@
  }
 --- a/third_party/blink/renderer/modules/mediastream/media_devices.cc
 +++ b/third_party/blink/renderer/modules/mediastream/media_devices.cc
-@@ -5,2 +5,3 @@
- #include "third_party/blink/renderer/modules/mediastream/media_devices.h"
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
  
+ #include "third_party/blink/renderer/modules/mediastream/media_devices.h"
 +#include "base/fp_config/fp_config.h"
-@@ -562,3 +563,11 @@
- WrapPersistent(result_tracker), std::move(tracer)));
+ 
+ #include <algorithm>
+ #include <utility>
+@@ -534,6 +534,15 @@
+           ? "true"
+           : "false"));
+ 
 +  if (fp_config::NoiseEnabled("media_devices")) {
 +    // Keep permission behavior intact but force a stable synthetic surface by
 +    // avoiding real device counts in pages that only probe enumerateDevices().
@@ -149,6 +155,10 @@
 +    devices.push_back(MakeGarbageCollected<MediaDeviceInfo>("fp-audio-input", "Default Microphone", "fp-group", mojom::blink::MediaDeviceType::kMediaAudioInput));
 +    devices.push_back(MakeGarbageCollected<MediaDeviceInfo>("fp-video-input", "Default Camera", "fp-group", mojom::blink::MediaDeviceType::kMediaVideoInput));
 +    result_tracker->Resolve(devices, EnumerateDevicesResult::kOk);
++    return promise;
 +  }
-   return promise;
- }
+   enumerate_device_requests_.insert(result_tracker);
+ 
+   // Checks if the enumerateDevices request has exceeded the timeout threshold.
+   // Note: ScriptPromiseResolverWithTracker automatically records a UMA timeout
+
