@@ -78,17 +78,20 @@
    return image_data;
 --- a/third_party/blink/renderer/modules/webaudio/offline_audio_context.cc
 +++ b/third_party/blink/renderer/modules/webaudio/offline_audio_context.cc
-@@ -27,3 +27,5 @@
+@@ -27,6 +27,8 @@
+ 
  #include "base/metrics/histogram_functions.h"
  #include "base/metrics/histogram_macros.h"
 +#include "base/fp_config/fp_config.h"
 +#include "base/fp_config/fp_noise.h"
  #include "media/base/audio_glitch_info.h"
+ #include "third_party/blink/public/platform/platform.h"
+ #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 @@ -794,2 +796,12 @@
      complete_resolver_->Resolve(rendered_buffer);
 +    if (fp_config::NoiseEnabled("audio_context")) {
 +      for (unsigned channel = 0; channel < rendered_buffer->numberOfChannels(); ++channel) {
-+        DOMFloat32Array* data = rendered_buffer->getChannelData(channel);
++        NotShared<DOMFloat32Array> data = rendered_buffer->getChannelData(channel);
 +        for (unsigned i = 0; i < data->length(); i += 211) {
 +          data->Data()[i] = fp_noise::InjectFloat(data->Data()[i],
 +                                                 0x415544494full + i + channel,
