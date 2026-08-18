@@ -26,25 +26,27 @@
        if (ExtensionEnabled(kWebGLDebugRendererInfoName)) {
 --- a/third_party/blink/renderer/modules/webgpu/gpu_adapter.cc
 +++ b/third_party/blink/renderer/modules/webgpu/gpu_adapter.cc
-@@ -5,3 +5,5 @@
+@@ -4,6 +4,8 @@
+ 
  #include "third_party/blink/renderer/modules/webgpu/gpu_adapter.h"
+ 
 +#include "base/containers/span.h"
 +#include "base/fp_config/fp_config.h"
- 
  #include "services/metrics/public/cpp/ukm_builders.h"
-@@ -213,3 +214,12 @@
- GPUAdapterInfo* GPUAdapter::info() const {
+ #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
+ #include "third_party/blink/renderer/bindings/core/v8/v8_object_builder.h"
+@@ -125,2 +125,11 @@
+ GPUAdapterInfo* GPUAdapter::CreateAdapterInfoForAdapter() {
 +  if (fp_config::ModeIs("webgpu.mode", "based_on_webgl")) {
 +    if (std::optional<std::string> vendor = fp_config::GetString("webgl.vendor")) {
-+      info_->setVendor(String::FromUtf8(base::as_byte_span(*vendor)));
++      vendor_ = String::FromUtf8(base::as_byte_span(*vendor));
 +    }
 +    if (std::optional<std::string> renderer = fp_config::GetString("webgl.renderer")) {
-+      info_->setDescription(String::FromUtf8(base::as_byte_span(*renderer)));
-+      info_->setDevice(String::FromUtf8(base::as_byte_span(*renderer)));
++      description_ = String::FromUtf8(base::as_byte_span(*renderer));
++      device_ = String::FromUtf8(base::as_byte_span(*renderer));
 +    }
 +  }
-   return info_.Get();
- }
+   bool is_fallback_adapter = adapter_type_ == wgpu::AdapterType::CPU;
 --- a/third_party/blink/renderer/modules/webgpu/gpu.cc
 +++ b/third_party/blink/renderer/modules/webgpu/gpu.cc
 @@ -5,3 +5,5 @@
