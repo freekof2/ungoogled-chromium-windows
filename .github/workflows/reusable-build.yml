@@ -22,7 +22,7 @@ on:
 jobs:
   build-1:
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         with:
@@ -60,7 +60,7 @@ jobs:
   build-2:
     needs: build-1
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-1.outputs.finished != 'true' }}
@@ -87,7 +87,7 @@ jobs:
   build-3:
     needs: build-2
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-2.outputs.finished != 'true' }}
@@ -114,7 +114,7 @@ jobs:
   build-4:
     needs: build-3
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-3.outputs.finished != 'true' }}
@@ -141,7 +141,7 @@ jobs:
   build-5:
     needs: build-4
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-4.outputs.finished != 'true' }}
@@ -168,7 +168,7 @@ jobs:
   build-6:
     needs: build-5
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-5.outputs.finished != 'true' }}
@@ -195,7 +195,7 @@ jobs:
   build-7:
     needs: build-6
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-6.outputs.finished != 'true' }}
@@ -222,7 +222,7 @@ jobs:
   build-8:
     needs: build-7
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-7.outputs.finished != 'true' }}
@@ -249,7 +249,7 @@ jobs:
   build-9:
     needs: build-8
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-8.outputs.finished != 'true' }}
@@ -276,7 +276,7 @@ jobs:
   build-10:
     needs: build-9
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-9.outputs.finished != 'true' }}
@@ -303,7 +303,7 @@ jobs:
   build-11:
     needs: build-10
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-10.outputs.finished != 'true' }}
@@ -330,7 +330,7 @@ jobs:
   build-12:
     needs: build-11
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-11.outputs.finished != 'true' }}
@@ -357,7 +357,7 @@ jobs:
   build-13:
     needs: build-12
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-12.outputs.finished != 'true' }}
@@ -384,7 +384,7 @@ jobs:
   build-14:
     needs: build-13
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-13.outputs.finished != 'true' }}
@@ -411,7 +411,7 @@ jobs:
   build-15:
     needs: build-14
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-14.outputs.finished != 'true' }}
@@ -438,7 +438,7 @@ jobs:
   build-16:
     needs: build-15
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-15.outputs.finished != 'true' }}
@@ -465,7 +465,7 @@ jobs:
   build-17:
     needs: build-16
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-16.outputs.finished != 'true' }}
@@ -492,7 +492,7 @@ jobs:
   build-18:
     needs: build-17
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-17.outputs.finished != 'true' }}
@@ -519,7 +519,7 @@ jobs:
   build-19:
     needs: build-18
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-18.outputs.finished != 'true' }}
@@ -546,7 +546,7 @@ jobs:
   build-20:
     needs: build-19
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-19.outputs.finished != 'true' }}
@@ -573,7 +573,7 @@ jobs:
   build-21:
     needs: build-20
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-20.outputs.finished != 'true' }}
@@ -600,7 +600,7 @@ jobs:
   build-22:
     needs: build-21
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-21.outputs.finished != 'true' }}
@@ -627,7 +627,7 @@ jobs:
   build-23:
     needs: build-22
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-22.outputs.finished != 'true' }}
@@ -654,7 +654,7 @@ jobs:
   build-24:
     needs: build-23
     runs-on: windows-2022
-    timeout-minutes: 345
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v7
         if: ${{ needs.build-23.outputs.finished != 'true' }}
