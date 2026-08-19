@@ -31,7 +31,7 @@
    };
 --- /dev/null
 +++ b/base/fp_config/fp_config.h
-@@ -0,0 +1,322 @@
+@@ -0,0 +1,345 @@
 +// Copyright 2026 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -239,8 +239,7 @@
 +}
 +
 +inline bool WebRtcProxyUdp() {
-+  return ModeIs("webrtc.mode", "proxy_udp") ||
-+         ModeIs("webrtc.mode", "forward");
++  return ModeIs("webrtc.mode", "proxy_udp");
 +}
 +
 +inline bool WebRtcReplaceCandidate() {
@@ -263,6 +262,18 @@
 +
 +inline std::optional<int> ProxyPort() {
 +  return GetInt("proxy.port");
++}
++
++inline std::string ProxyUsername() {
++  return GetString("proxy.username").value_or(std::string());
++}
++
++inline std::string ProxyPassword() {
++  return GetString("proxy.password").value_or(std::string());
++}
++
++inline bool ProxyHasCredentials() {
++  return !ProxyUsername().empty() || !ProxyPassword().empty();
 +}
 +
 +inline std::string ProxyUri() {
@@ -333,14 +344,26 @@
 +}
 +
 +inline bool IsPrivateOrLocalHost(std::string_view host) {
-+  if (host == "localhost" || host == "127.0.0.1" || host == "::1") {
++  if (base::EqualsCaseInsensitiveASCII(host, "localhost") ||
++      host == "localhost." || host == "0.0.0.0" || host == "::" ||
++      host == "::1" || host == "0:0:0:0:0:0:0:1") {
 +    return true;
 +  }
-+  if (base::StartsWith(host, "10.") || base::StartsWith(host, "192.168.") ||
-+      base::StartsWith(host, "172.16.") || base::StartsWith(host, "172.17.") ||
-+      base::StartsWith(host, "172.18.") || base::StartsWith(host, "172.19.") ||
-+      base::StartsWith(host, "172.2") || base::StartsWith(host, "172.30.") ||
-+      base::StartsWith(host, "172.31.")) {
++  if (base::StartsWith(host, "10.") || base::StartsWith(host, "127.") ||
++      base::StartsWith(host, "169.254.") || base::StartsWith(host, "192.0.0.") ||
++      base::StartsWith(host, "192.168.") || base::StartsWith(host, "198.18.") ||
++      base::StartsWith(host, "198.19.") || base::StartsWith(host, "172.16.") ||
++      base::StartsWith(host, "172.17.") || base::StartsWith(host, "172.18.") ||
++      base::StartsWith(host, "172.19.") || base::StartsWith(host, "172.20.") ||
++      base::StartsWith(host, "172.21.") || base::StartsWith(host, "172.22.") ||
++      base::StartsWith(host, "172.23.") || base::StartsWith(host, "172.24.") ||
++      base::StartsWith(host, "172.25.") || base::StartsWith(host, "172.26.") ||
++      base::StartsWith(host, "172.27.") || base::StartsWith(host, "172.28.") ||
++      base::StartsWith(host, "172.29.") || base::StartsWith(host, "172.30.") ||
++      base::StartsWith(host, "172.31.") || base::StartsWith(host, "fe8") ||
++      base::StartsWith(host, "fe9") || base::StartsWith(host, "fea") ||
++      base::StartsWith(host, "feb") || base::StartsWith(host, "fc") ||
++      base::StartsWith(host, "fd")) {
 +    return true;
 +  }
 +  return false;

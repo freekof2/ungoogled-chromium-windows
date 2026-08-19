@@ -6,10 +6,12 @@ namespace FpBrowserLauncher.Services;
 
 public sealed class FingerprintGenerator
 {
+    public const string DefaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.71 Safari/537.36";
+
     private static readonly DeviceSample[] Samples =
     [
         new(
-            UserAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+            UserAgent: DefaultUserAgent,
             WebGlVendor: "Google Inc. (NVIDIA)",
             WebGlRenderer: "ANGLE (NVIDIA, NVIDIA GeForce GTX 1660 Direct3D11 vs_5_0 ps_5_0)",
             Fonts: ["Arial", "Microsoft YaHei", "SimSun", "Calibri", "Segoe UI", "Times New Roman"],
@@ -19,7 +21,7 @@ public sealed class FingerprintGenerator
             Timezone: "Asia/Shanghai",
             Language: "zh-CN"),
         new(
-            UserAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+            UserAgent: DefaultUserAgent,
             WebGlVendor: "Google Inc. (AMD)",
             WebGlRenderer: "ANGLE (AMD, AMD Radeon RX 580 Direct3D11 vs_5_0 ps_5_0)",
             Fonts: ["Arial", "Microsoft YaHei", "SimSun", "Calibri", "Segoe UI", "Verdana"],
@@ -29,7 +31,7 @@ public sealed class FingerprintGenerator
             Timezone: "Asia/Shanghai",
             Language: "zh-CN"),
         new(
-            UserAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+            UserAgent: DefaultUserAgent,
             WebGlVendor: "Google Inc. (Intel)",
             WebGlRenderer: "ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0)",
             Fonts: ["Arial", "Microsoft YaHei", "SimSun", "Calibri", "Segoe UI", "Tahoma"],

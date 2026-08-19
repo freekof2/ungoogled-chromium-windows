@@ -1,5 +1,4 @@
-# Fingerprint browser: deterministic noise framework and JS readback hooks.
-
+# Fingerprint browser: deterministic noise injection with safe bounds.
 --- /dev/null
 +++ b/base/fp_config/fp_noise.h
 @@ -0,0 +1,41 @@
@@ -46,20 +45,32 @@
 +#endif  // BASE_FP_CONFIG_FP_NOISE_H_
 --- a/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc
 +++ b/third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc
-@@ -35,4 +35,6 @@
+@@ -34,6 +34,8 @@
  #include "base/byte_size.h"
  #include "base/compiler_specific.h"
  #include "base/feature_list.h"
 +#include "base/fp_config/fp_config.h"
 +#include "base/fp_config/fp_noise.h"
  #include "base/memory/scoped_refptr.h"
-@@ -5342,2 +5344,6 @@
+ #include "base/metrics/histogram_functions.h"
+ #include "base/metrics/histogram_macros.h"
+@@ -5346,6 +5348,16 @@
+       return;
+     }
      ContextGL()->ReadPixels(x, y, width, height, format, type, data);
 +    if (fp_config::NoiseEnabled("webgl_image") && data) {
-+      fp_noise::InjectBytes(data,
-+                            static_cast<size_t>(width * height * 4), 0x57474c);
++      base::CheckedNumeric<size_t> noise_size = width;
++      noise_size *= height;
++      noise_size *= 4;
++      if (noise_size.IsValid()) {
++        const size_t safe_size = std::min(
++            noise_size.ValueOrDie(), static_cast<size_t>(buffer_size.ValueOrDie()));
++        fp_noise::InjectBytes(data, safe_size, 0x57474c);
++      }
 +    }
    }
+ }
+ 
 --- a/third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.cc
 +++ b/third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.cc
 @@ -14,6 +14,8 @@
@@ -71,7 +82,9 @@
  #include "base/location.h"
  #include "base/memory/scoped_refptr.h"
  #include "base/memory/weak_ptr.h"
-@@ -514,3 +516,7 @@
+@@ -512,6 +514,10 @@
+       DCHECK(!bounds.intersect(SkIRect::MakeXYWH(sx, sy, sw, sh)));
+     }
    }
 +  if (fp_config::NoiseEnabled("canvas") && image_data) {
 +    auto data = image_data->RawByteSpan();
@@ -79,6 +92,7 @@
 +  }
  
    return image_data;
+ }
 --- a/third_party/blink/renderer/modules/webaudio/offline_audio_context.cc
 +++ b/third_party/blink/renderer/modules/webaudio/offline_audio_context.cc
 @@ -27,6 +27,8 @@
@@ -90,27 +104,36 @@
  #include "media/base/audio_glitch_info.h"
  #include "third_party/blink/public/platform/platform.h"
  #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
-@@ -794,2 +796,12 @@
-     complete_resolver_->Resolve(rendered_buffer);
+@@ -435,6 +437,16 @@
+     // Call the offline rendering completion event listener and resolve the
+     // promise too.
+     DispatchEvent(*OfflineAudioCompletionEvent::Create(rendered_buffer));
 +    if (fp_config::NoiseEnabled("audio_context")) {
-+      for (unsigned channel = 0; channel < rendered_buffer->numberOfChannels(); ++channel) {
++      for (unsigned channel = 0; channel < rendered_buffer->numberOfChannels();
++           ++channel) {
 +        NotShared<DOMFloat32Array> data = rendered_buffer->getChannelData(channel);
 +        for (unsigned i = 0; i < data->length(); i += 211) {
-+          data->Data()[i] = fp_noise::InjectFloat(data->Data()[i],
-+                                                 0x415544494full + i + channel,
-+                                                 0.0000003f);
++          data->Data()[i] = fp_noise::InjectFloat(
++              data->Data()[i], 0x415544494full + i + channel, 0.0000003f);
 +        }
 +      }
 +    }
+     complete_resolver_->Resolve(rendered_buffer);
    } else {
+     // The resolver should be rejected when the execution context is gone.
 --- a/third_party/blink/renderer/core/dom/element.cc
 +++ b/third_party/blink/renderer/core/dom/element.cc
-@@ -34,2 +34,4 @@
+@@ -33,6 +33,8 @@
+ #include <utility>
+ 
  #include "base/containers/adapters.h"
 +#include "base/fp_config/fp_config.h"
 +#include "base/fp_config/fp_noise.h"
  #include "base/feature_list.h"
-@@ -3497,4 +3499,11 @@
+ #include "cc/input/snap_selection_strategy.h"
+ #include "components/viz/common/surfaces/tracked_element_rects.h"
+@@ -3515,7 +3517,14 @@
+ DOMRect* Element::GetBoundingClientRect() {
    GetDocument().EnsurePaintLocationDataValidForNode(
        this, DocumentUpdateReason::kJavaScript);
 -  return DOMRect::FromRectF(GetBoundingClientRectNoLifecycleUpdate());
@@ -123,21 +146,28 @@
 +  }
 +  return DOMRect::FromRectF(result);
  }
+ 
+ DOMRect* Element::GetBoundingClientRectForBinding() {
 --- a/third_party/blink/renderer/modules/speech/speech_synthesis.cc
 +++ b/third_party/blink/renderer/modules/speech/speech_synthesis.cc
-@@ -29,4 +29,5 @@
+@@ -28,6 +28,7 @@
  #include <tuple>
  
  #include "build/build_config.h"
 +#include "base/fp_config/fp_config.h"
  #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
-@@ -125,3 +126,8 @@
-   voice_list_.clear();
+ #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
+ #include "third_party/blink/public/platform/platform.h"
+@@ -88,6 +89,11 @@
+   for (auto& mojom_voice : mojom_voices) {
+     voice_list_.push_back(
+         MakeGarbageCollected<SpeechSynthesisVoice>(std::move(mojom_voice)));
++  }
 +  if (fp_config::NoiseEnabled("speech_voices") && voice_list_.size() > 4) {
 +    while (voice_list_.size() > 4) {
 +      voice_list_.pop_back();
 +    }
-+  }
+   }
    VoicesDidChange();
  }
 --- a/third_party/blink/renderer/modules/mediastream/media_devices.cc
@@ -150,21 +180,22 @@
  
  #include <algorithm>
  #include <utility>
-@@ -534,6 +534,15 @@
-           ? "true"
-           : "false"));
- 
+@@ -525,7 +526,17 @@
+       script_state, "Media.MediaDevices.EnumerateDevices",
+       kEnumerateDevicesTimeout);
+   const auto promise = result_tracker->Promise();
+-
 +  if (fp_config::NoiseEnabled("media_devices")) {
-+    // Keep permission behavior intact but force a stable synthetic surface by
-+    // avoiding real device counts in pages that only probe enumerateDevices().
 +    HeapVector<Member<MediaDeviceInfo>> devices;
-+    devices.push_back(MakeGarbageCollected<MediaDeviceInfo>("fp-audio-input", "Default Microphone", "fp-group", mojom::blink::MediaDeviceType::kMediaAudioInput));
-+    devices.push_back(MakeGarbageCollected<MediaDeviceInfo>("fp-video-input", "Default Camera", "fp-group", mojom::blink::MediaDeviceType::kMediaVideoInput));
++    devices.push_back(MakeGarbageCollected<MediaDeviceInfo>(
++        "fp-audio-input", "Default Microphone", "fp-group",
++        mojom::blink::MediaDeviceType::kMediaAudioInput));
++    devices.push_back(MakeGarbageCollected<MediaDeviceInfo>(
++        "fp-video-input", "Default Camera", "fp-group",
++        mojom::blink::MediaDeviceType::kMediaVideoInput));
 +    result_tracker->Resolve(devices, EnumerateDevicesResult::kOk);
 +    return promise;
 +  }
-   enumerate_device_requests_.insert(result_tracker);
- 
-   // Checks if the enumerateDevices request has exceeded the timeout threshold.
-   // Note: ScriptPromiseResolverWithTracker automatically records a UMA timeout
-
+   SendLogMessage(base::StringPrintf(
+       "enumerateDevices({result_tracker=%p}, "
+       "{request_audio_input_capabilities=%s})",

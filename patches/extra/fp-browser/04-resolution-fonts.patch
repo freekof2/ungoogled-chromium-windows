@@ -1,14 +1,17 @@
-# Fingerprint browser: screen resolution and Windows font filtering.
-
+# Fingerprint browser: resolution and font allowlist for Chromium 151.
 --- a/third_party/blink/renderer/core/frame/screen.cc
 +++ b/third_party/blink/renderer/core/frame/screen.cc
-@@ -5,4 +5,5 @@
- #include "third_party/blink/renderer/core/frame/screen.h"
+@@ -27,6 +27,7 @@
+  */
  
+ #include "third_party/blink/renderer/core/frame/screen.h"
 +#include "base/fp_config/fp_config.h"
+ 
  #include "base/numerics/safe_conversions.h"
  #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-blink.h"
-@@ -194,2 +195,9 @@
+@@ -166,6 +167,13 @@
+   LocalFrame* frame = DomWindow()->GetFrame();
+   const display::ScreenInfo& screen_info = GetScreenInfo();
    gfx::Rect rect = available ? screen_info.available_rect : screen_info.rect;
 +  std::optional<int> width = fp_config::GetInt("resolution.width");
 +  std::optional<int> height = fp_config::GetInt("resolution.height");
@@ -18,44 +21,58 @@
 +    rect.set_height(*height);
 +  }
    if (frame->GetSettings()->GetReportScreenSizeInPhysicalPixelsQuirk())
+     return gfx::ScaleToRoundedRect(rect, screen_info.device_scale_factor);
+   return rect;
 --- a/content/browser/renderer_host/dwrite_font_proxy_impl_win.cc
 +++ b/content/browser/renderer_host/dwrite_font_proxy_impl_win.cc
-@@ -5,4 +5,5 @@
- #include "content/browser/renderer_host/dwrite_font_proxy_impl_win.h"
+@@ -19,6 +19,7 @@
  
+ #include "base/check_op.h"
+ #include "base/feature_list.h"
 +#include "base/fp_config/fp_config.h"
- #include <windows.h>
- #include <shlobj.h>
-@@ -48,2 +49,19 @@
+ #include "base/functional/callback_helpers.h"
+ #include "base/i18n/case_conversion.h"
+ #include "base/metrics/histogram_functions.h"
+@@ -43,6 +44,22 @@
+ namespace content {
  
+ namespace {
++
 +bool IsFontAllowed(const std::u16string& font_name) {
 +  std::vector<std::string> configured_fonts =
 +      fp_config::ModeAllowsOverride("fonts.mode")
 +          ? fp_config::GetStringList("fonts.list")
 +          : std::vector<std::string>();
-+  if (!configured_fonts.empty()) {
-+    std::string utf8_font = base::UTF16ToUTF8(font_name);
-+    for (const std::string& configured_font : configured_fonts) {
-+      if (base::EqualsCaseInsensitiveASCII(configured_font, utf8_font)) {
-+        return true;
-+      }
-+    }
-+    return false;
++  if (configured_fonts.empty()) {
++    return true;
 +  }
-+  return true;
++  const std::string utf8_font = base::UTF16ToUTF8(font_name);
++  return std::any_of(configured_fonts.begin(), configured_fonts.end(),
++                     [&utf8_font](const std::string& configured_font) {
++                       return base::EqualsCaseInsensitiveASCII(configured_font,
++                                                               utf8_font);
++                     });
 +}
-+
- enum class DWriteFontProxyIPC {
-@@ -190,3 +206,3 @@
+ 
+ // Recorded in Chrome.DWriteFontProxy.InvokedIPC, don't modify or re-order
+ // without also changing DWriteFontProxyIPC.
+@@ -224,7 +241,7 @@
+   base::UmaHistogramEnumeration("Chrome.DWriteFontProxy.InvokedIPC",
+                                 DWriteFontProxyIPC::kFindFamily);
    UINT32 family_index = UINT32_MAX;
 -  if (collection_) {
 +  if (IsFontAllowed(family_name) && collection_) {
      BOOL exists = FALSE;
-@@ -358,3 +374,7 @@
-   InitializeDirectWrite();
+     UINT32 index = UINT32_MAX;
+     HRESULT hr = collection_->FindFamilyName(base::as_wcstr(family_name),
+@@ -488,6 +505,10 @@
+ 
+   callback = mojo::WrapCallbackWithDefaultInvokeIfNotRun(std::move(callback),
+                                                          base::File(), 0);
 +  if (!IsFontAllowed(unique_font_name)) {
 +    std::move(callback).Run(base::File(), 0);
 +    return;
 +  }
+   InitializeDirectWrite();
  
    // We must not get here if this version of DWrite can't handle performing the

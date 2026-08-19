@@ -36,11 +36,58 @@ public sealed class ChromiumPatchCoverageTests
         Assert.Contains("tls_fingerprint.mode", patches);
     }
 
+    [Fact]
+    public void RegressionGuards_PreviousCompilerAndPatchFixesRemainPresent()
+    {
+        var patches = ReadFingerprintPatches();
+        var patch05 = ReadPatch("05-noise-injection-framework.patch");
+        var patch06 = ReadPatch("06-webgl-webgpu-metadata.patch");
+        var patch11 = ReadPatch("11-udp-over-socks5.patch");
+        var prepare = ReadRepositoryFile(Path.Combine(".github", "actions", "prepare", "action.yml"));
+        var stage = ReadRepositoryFile(Path.Combine(".github", "actions", "stage", "index.js"));
+        var stageDist = ReadRepositoryFile(Path.Combine(".github", "actions", "stage", "dist", "index.js"));
+        var reusableBuild = ReadRepositoryFile(Path.Combine(".github", "workflows", "reusable-build.yml"));
+
+        Assert.Contains("RawByteSpan()", patch05);
+        Assert.DoesNotContain("image_data->data()->Data()", patch05);
+        Assert.DoesNotContain("image_data->data()->length()", patch05);
+        Assert.Contains("NotShared<DOMFloat32Array>", patch05);
+        Assert.Contains("voice_list_.push_back", patch05);
+        Assert.Contains("NoiseEnabled(\"speech_voices\")", patch05);
+        Assert.DoesNotContain("voice_list_.clear();\n+  if (fp_config::NoiseEnabled(\"speech_voices\")", patch05);
+        Assert.Contains("safe_size", patch05);
+        Assert.Contains("ProxyHasCredentials", patch11);
+        Assert.Contains("STATE_AUTH_WRITE", patch11);
+        Assert.Contains("ERR_PROXY_CONNECTION_FAILED", patch11);
+        Assert.DoesNotContain("fp_socks5_udp_client.h", patch11);
+        Assert.Contains("base::as_byte_span", patches);
+        Assert.DoesNotContain("FromUTF8(", patches);
+        Assert.Contains("GPUAdapter", patch06);
+        Assert.DoesNotContain("GPUAdapterInfo::setVendor", patch06);
+        Assert.Contains("httplib2", prepare);
+        Assert.Contains("PySocks", prepare);
+        Assert.Contains("ignoreReturnCode", stage);
+        Assert.Contains("ignoreReturnCode", stageDist);
+        Assert.Contains("actions/cache@v5", reusableBuild);
+    }
+
     private static string ReadFingerprintPatches()
     {
         var directory = FindRepositoryRoot(new DirectoryInfo(AppContext.BaseDirectory));
         var patchDirectory = Path.Combine(directory.FullName, "patches", "extra", "fp-browser");
         return string.Join('\n', Directory.GetFiles(patchDirectory, "*.patch").Select(File.ReadAllText));
+    }
+
+    private static string ReadPatch(string fileName)
+    {
+        var directory = FindRepositoryRoot(new DirectoryInfo(AppContext.BaseDirectory));
+        return File.ReadAllText(Path.Combine(directory.FullName, "patches", "extra", "fp-browser", fileName));
+    }
+
+    private static string ReadRepositoryFile(string relativePath)
+    {
+        var directory = FindRepositoryRoot(new DirectoryInfo(AppContext.BaseDirectory));
+        return File.ReadAllText(Path.Combine(directory.FullName, relativePath));
     }
 
     private static DirectoryInfo FindRepositoryRoot(DirectoryInfo start)

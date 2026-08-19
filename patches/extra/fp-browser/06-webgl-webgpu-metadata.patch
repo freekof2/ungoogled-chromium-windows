@@ -55,7 +55,7 @@
 +#include "base/fp_config/fp_config.h"
  
  #include <utility>
-@@ -402,6 +402,12 @@
+@@ -402,7 +402,13 @@
  ScriptPromise<IDLNullable<GPUAdapter>> GPU::requestAdapter(
      ScriptState* script_state,
      const GPURequestAdapterOptions* options) {

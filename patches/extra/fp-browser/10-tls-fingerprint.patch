@@ -1,30 +1,37 @@
-# Fingerprint browser: TLS fingerprint mode plumbing.
-
+# Fingerprint browser: deterministic TLS extension order and cipher preference.
 --- a/net/socket/ssl_client_socket_impl.cc
 +++ b/net/socket/ssl_client_socket_impl.cc
-@@ -5,2 +5,3 @@
- #include "net/socket/ssl_client_socket_impl.h"
-
+@@ -17,6 +17,7 @@
+ #include "base/containers/span.h"
+ #include "base/containers/to_vector.h"
+ #include "base/feature_list.h"
 +#include "base/fp_config/fp_config.h"
-@@ -879,3 +881,11 @@
+ #include "base/functional/bind.h"
+ #include "base/functional/callback_helpers.h"
+ #include "base/lazy_instance.h"
+@@ -877,6 +878,11 @@
+   }
+ 
    SSL_set_permute_extensions(ssl_.get(), 1);
 +  if (fp_config::ModeIs("tls_fingerprint.mode", "fixed_chrome")) {
-+    // Fixed mode intentionally disables Chromium's extension permutation so a
-+    // profile can be tested against deterministic JA3-style observations.
++    // fixed_chrome is deliberately limited to deterministic extension order;
++    // it does not claim to reproduce every BoringSSL ClientHello detail.
 +    SSL_set_permute_extensions(ssl_.get(), 0);
 +  }
-+  if (fp_config::ModeIs("tls_fingerprint.mode", "chrome_default")) {
-+    // Preserve upstream Chromium behavior.
-+  }
-
+ 
    // Configure BoringSSL to send Trust Anchor IDs, if provided.
+   if (ssl_config_.trust_anchor_ids.has_value()) {
 --- a/net/ssl/ssl_config_service.cc
 +++ b/net/ssl/ssl_config_service.cc
-@@ -5,2 +5,3 @@
- #include "net/ssl/ssl_config_service.h"
-
+@@ -8,6 +8,7 @@
+ 
+ #include "base/containers/to_vector.h"
+ #include "base/feature_list.h"
 +#include "base/fp_config/fp_config.h"
-@@ -84,4 +86,7 @@
+ #include "base/numerics/safe_conversions.h"
+ #include "base/observer_list.h"
+ #include "net/base/features.h"
+@@ -119,6 +120,9 @@
  SSLContextConfig::SSLContextConfig() {
    supported_named_groups.assign(std::begin(kDefaultSSLSupportedGroups),
                                  std::end(kDefaultSSLSupportedGroups));
@@ -32,3 +39,5 @@
 +    tls13_cipher_prefer_aes_256 = false;
 +  }
  }
+ 
+ SSLContextConfig::SSLContextConfig(const SSLContextConfig&) = default;

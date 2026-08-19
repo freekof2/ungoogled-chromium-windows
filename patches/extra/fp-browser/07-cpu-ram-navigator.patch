@@ -2,11 +2,17 @@
 
 --- a/third_party/blink/renderer/core/frame/navigator_concurrent_hardware.cc
 +++ b/third_party/blink/renderer/core/frame/navigator_concurrent_hardware.cc
-@@ -5,2 +5,3 @@
+@@ -3,12 +3,18 @@
+ // found in the LICENSE file.
+ 
  #include "third_party/blink/renderer/core/frame/navigator_concurrent_hardware.h"
-
 +#include "base/fp_config/fp_config.h"
-@@ -16,2 +17,7 @@ unsigned NavigatorConcurrentHardware::hardwareConcurrency() const {
+ 
+ #include "base/system/sys_info.h"
+ 
+ namespace blink {
+ 
+ unsigned NavigatorConcurrentHardware::hardwareConcurrency() const {
 +  if (std::optional<int> cpu_cores = fp_config::GetInt("cpu_cores")) {
 +    if (*cpu_cores > 0 && *cpu_cores <= 128) {
 +      return static_cast<unsigned>(*cpu_cores);
@@ -14,13 +20,21 @@
 +  }
    return static_cast<unsigned>(base::SysInfo::NumberOfProcessors());
  }
+ 
 --- a/third_party/blink/renderer/core/frame/navigator_device_memory.cc
 +++ b/third_party/blink/renderer/core/frame/navigator_device_memory.cc
-@@ -5,2 +5,3 @@
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
  #include "third_party/blink/renderer/core/frame/navigator_device_memory.h"
-
 +#include "base/fp_config/fp_config.h"
-@@ -18,2 +19,7 @@ float NavigatorDeviceMemory::deviceMemory() const {
+ 
+ #include "third_party/blink/public/common/device_memory/approximated_device_memory.h"
+ #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-shared.h"
+@@ -12,6 +13,11 @@
+ namespace blink {
+ 
+ float NavigatorDeviceMemory::deviceMemory() const {
 +  if (std::optional<int> memory = fp_config::GetInt("device_memory_gb")) {
 +    if (*memory > 0 && *memory <= 128) {
 +      return static_cast<float>(*memory);
@@ -28,3 +42,4 @@
 +  }
    return ApproximatedDeviceMemory::GetApproximatedDeviceMemory();
  }
+ 

@@ -16,6 +16,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private string _chromiumPath = string.Empty;
     private string _profileId = "p001";
+    private string _userAgent = FingerprintGenerator.DefaultUserAgent;
     private string _displayName = "Profile 001";
     private string _proxyHost = "127.0.0.1";
     private string _proxyPortText = "1080";
@@ -100,7 +101,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         new("替换", "replace"),
         new("真实", "real"),
         new("禁用", "disabled"),
-        new("代理 UDP", "proxy_udp")
+        new("代理 UDP（无直连回退）", "proxy_udp")
     ];
 
     public IReadOnlyList<SelectionOption> TimezoneModeOptions { get; } =
@@ -218,6 +219,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         get => _chromiumPath;
         set => SetField(ref _chromiumPath, value);
+    }
+
+    public string UserAgent
+    {
+        get => _userAgent;
+        set => SetField(ref _userAgent, value);
     }
 
     public string ProfileId
@@ -459,6 +466,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
         if (fingerprint is not null)
         {
+            UserAgent = fingerprint.UserAgent;
             LoadFingerprintSettings(fingerprint);
         }
 
@@ -486,6 +494,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             _ => EmptyToNull(UiLanguageValue)
         };
 
+        fingerprint.UserAgent = string.IsNullOrWhiteSpace(UserAgent)
+            ? fingerprint.UserAgent
+            : UserAgent.Trim();
         fingerprint.WebRtc = new ModeValue { Mode = webRtcMode };
         fingerprint.Timezone = new ModeValue { Mode = timezoneMode, Value = IsMode(timezoneMode, "real") ? null : EmptyToNull(TimezoneValue) };
         fingerprint.Geolocation = new GeolocationValue

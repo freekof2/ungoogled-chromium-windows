@@ -1,14 +1,17 @@
-# Fingerprint browser: user agent and hardware acceleration completion.
-
+# Fingerprint browser: User-Agent and hardware acceleration completion.
 --- a/third_party/blink/renderer/core/execution_context/navigator_base.cc
 +++ b/third_party/blink/renderer/core/execution_context/navigator_base.cc
-@@ -5,3 +5,5 @@
+@@ -3,6 +3,8 @@
+ // found in the LICENSE file.
+ 
  #include "third_party/blink/renderer/core/execution_context/navigator_base.h"
 +#include "base/containers/span.h"
 +#include "base/fp_config/fp_config.h"
  
  #include "base/feature_list.h"
-@@ -48,4 +50,7 @@
+ #include "build/build_config.h"
+@@ -48,6 +50,9 @@
+ 
  String NavigatorBase::userAgent() const {
    ExecutionContext* execution_context = GetExecutionContext();
 +  if (const auto user_agent = fp_config::UserAgent()) {
@@ -16,34 +19,47 @@
 +  }
    return execution_context ? execution_context->UserAgent() : String();
  }
-
+ 
 --- a/components/embedder_support/user_agent_utils.cc
 +++ b/components/embedder_support/user_agent_utils.cc
-@@ -5,2 +5,3 @@
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
  #include "components/embedder_support/user_agent_utils.h"
-
 +#include "base/fp_config/fp_config.h"
-@@ -214,2 +215,5 @@ std::string GetUserAgent() {
-   if (base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kUserAgent))
-     return base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(switches::kUserAgent);
+ 
+ #include <stdint.h>
+ 
+@@ -467,6 +468,9 @@
+   if (custom_ua.has_value()) {
+     return custom_ua.value();
+   }
 +  if (std::optional<std::string> user_agent = fp_config::UserAgent()) {
 +    return *user_agent;
 +  }
-   return BuildUserAgentFromProduct(product);
+ 
+   return GetUserAgentInternal();
  }
 --- a/chrome/browser/gpu/chrome_browser_main_extra_parts_gpu.cc
 +++ b/chrome/browser/gpu/chrome_browser_main_extra_parts_gpu.cc
-@@ -5,2 +5,4 @@
+@@ -3,6 +3,9 @@
+ // found in the LICENSE file.
+ 
  #include "chrome/browser/gpu/chrome_browser_main_extra_parts_gpu.h"
-
 +#include "base/command_line.h"
 +#include "base/fp_config/fp_config.h"
-@@ -56,4 +58,8 @@ void ChromeBrowserMainExtraPartsGpu::PreProfileInit() {
-   // Do GPU process initialization before profiles are created so GPU-related
-   // switches are stable for renderer processes.
++#include "chrome/common/chrome_switches.h"
+ 
+ #include "base/check.h"
+ #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
+@@ -34,6 +37,10 @@
+ }
+ 
+ void ChromeBrowserMainExtraPartsGpu::PreCreateThreads() {
 +  if (fp_config::HardwareAccelerationDisabled()) {
 +    base::CommandLine::ForCurrentProcess()->AppendSwitch(
 +        switches::kDisableGpu);
 +  }
-   content::GpuDataManager::GetInstance()->Initialize();
- }
+   // This should be the first time to get an instance of GpuDataManager.
+   // This is where it's initialized.
+   // 1) Need to initialize in-process GpuDataManager before creating threads.

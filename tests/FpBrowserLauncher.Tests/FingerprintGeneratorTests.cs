@@ -24,6 +24,15 @@ public sealed class FingerprintGeneratorTests
     }
 
     [Fact]
+    public void Generate_UsesChromium151CompatibleDefaultUserAgent()
+    {
+        var fingerprint = new FingerprintGenerator().Generate("p001");
+
+        Assert.Equal(FingerprintGenerator.DefaultUserAgent, fingerprint.UserAgent);
+        Assert.Contains("Chrome/151.0.7922.71", fingerprint.UserAgent);
+    }
+
+    [Fact]
     public void DeriveSeed_NormalizesProfileId()
     {
         Assert.Equal(FingerprintGenerator.DeriveSeed("p001"), FingerprintGenerator.DeriveSeed(" P001 "));

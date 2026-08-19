@@ -62,6 +62,7 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
                                     <RowDefinition Height="*" />
                                 </Grid.RowDefinitions>
                                 <Grid.ColumnDefinitions>
@@ -88,7 +89,9 @@
                                     <TextBox Text="{Binding ProxyUsername, UpdateSourceTrigger=PropertyChanged}" ToolTip="用户名" Style="{StaticResource ModernTextBoxStyle}" />
                                     <TextBox Grid.Column="2" Text="{Binding ProxyPassword, UpdateSourceTrigger=PropertyChanged}" ToolTip="密码" Style="{StaticResource ModernTextBoxStyle}" />
                                 </Grid>
-                                <Border Grid.Row="6" Grid.ColumnSpan="2" Style="{StaticResource GreyCardStyle}" Margin="0,16,0,0">
+                                <TextBlock Grid.Row="6" Text="User-Agent" VerticalAlignment="Center" Margin="0,8,0,0" Style="{StaticResource LabelStyle}" />
+                                <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding UserAgent, UpdateSourceTrigger=PropertyChanged}" Margin="0,8,0,0" Style="{StaticResource ModernTextBoxStyle}" />
+                                <Border Grid.Row="7" Grid.ColumnSpan="2" Style="{StaticResource GreyCardStyle}" Margin="0,16,0,0">
                                     <TextBox Text="{Binding SelectedProfileDetails, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Background="Transparent" BorderThickness="0" />
                                 </Border>
                             </Grid>

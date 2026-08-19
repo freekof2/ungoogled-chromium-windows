@@ -21,6 +21,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate fingerprint patch structure
+        shell: pwsh
+        run: python research/validate_fp_patches.py
+
+      - name: Validate Chromium 151 patch application
+        shell: pwsh
+        run: python research/validate_patch_application.py
+
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:

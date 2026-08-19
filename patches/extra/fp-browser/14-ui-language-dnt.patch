@@ -1,19 +1,18 @@
-# Fingerprint browser: UI locale and Do Not Track mode completion.
-#
-# UI language is applied before Chrome's resource bundle is initialized, while
-# Do Not Track is applied to renderer preferences so both navigator.doNotTrack
-# and the DNT request header use the same profile setting.
-
+# Fingerprint browser: UI language and Do Not Track integration.
 --- a/chrome/app/chrome_main_delegate.cc
 +++ b/chrome/app/chrome_main_delegate.cc
-@@ -12,2 +12,3 @@
+@@ -10,6 +10,7 @@
+ #include <variant>
+ 
  #include "base/base_paths.h"
 +#include "base/fp_config/fp_config.h"
  #include "base/check.h"
-@@ -1062,2 +1062,13 @@
-  const base::CommandLine& command_line =
-      *base::CommandLine::ForCurrentProcess();
-+
+ #include "base/command_line.h"
+ #include "base/compiler_specific.h"
+@@ -630,6 +631,16 @@
+   }
+   const base::CommandLine& command_line =
+       *base::CommandLine::ForCurrentProcess();
 +  if (!command_line.HasSwitch(switches::kProcessType) &&
 +      !command_line.HasSwitch(switches::kLang) &&
 +      fp_config::ModeAllowsOverride("ui_language.mode")) {
@@ -24,17 +23,21 @@
 +          switches::kLang, *ui_language);
 +    }
 +  }
+   logging::InitChromeLogging(command_line, file_state);
+ 
+ #if BUILDFLAG(IS_CHROMEOS)
 --- a/chrome/browser/renderer_preferences_util.cc
 +++ b/chrome/browser/renderer_preferences_util.cc
-@@ -150,5 +150,11 @@
+@@ -149,6 +149,12 @@
    prefs->enable_referrers = pref_service->GetBoolean(prefs::kEnableReferrers);
    prefs->enable_do_not_track =
        pref_service->GetBoolean(prefs::kEnableDoNotTrack);
 +  if (fp_config::ModeIsAny("do_not_track", {"enabled", "on"})) {
 +    prefs->enable_do_not_track = true;
-+  } else if (fp_config::ModeIsAny("do_not_track",
-+                                  {"disabled", "off", "default"})) {
++  } else if (fp_config::ModeIsAny(
++                 "do_not_track", {"disabled", "off", "default"})) {
 +    prefs->enable_do_not_track = false;
 +  }
    prefs->enable_encrypted_media =
        pref_service->GetBoolean(prefs::kEnableEncryptedMedia);
+ 

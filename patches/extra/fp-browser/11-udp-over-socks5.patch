@@ -1,15 +1,21 @@
-# Fingerprint browser: SOCKS5 TCP/UDP enforcement and fail-closed UDP.
-
+# Fingerprint browser: SOCKS5 proxy authentication and fail-closed UDP policy.
+# Chromium 151 baseline; proxy_udp is intentionally fail-closed until a real
+# SOCKS5 UDP ASSOCIATE transport is available, preventing direct UDP leaks.
 --- a/chrome/browser/net/proxy_config_monitor.cc
 +++ b/chrome/browser/net/proxy_config_monitor.cc
-@@ -5,2 +5,3 @@
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
  #include "chrome/browser/net/proxy_config_monitor.h"
-
 +#include "base/fp_config/fp_config.h"
-@@ -86,2 +87,11 @@ void ProxyConfigMonitor::AddToNetworkContextParams(
-   network_context_params->initial_proxy_config = proxy_config;
-+  std::string proxy_uri = fp_config::ProxyUri();
-+  if (!proxy_uri.empty()) {
+ 
+ #include <utility>
+ 
+@@ -101,6 +102,14 @@
+       proxy_config_service_->GetLatestProxyConfig(&proxy_config);
+   if (availability != net::ProxyConfigService::CONFIG_PENDING)
+     network_context_params->initial_proxy_config = proxy_config;
++  if (std::string proxy_uri = fp_config::ProxyUri(); !proxy_uri.empty()) {
 +    net::ProxyConfig fixed_proxy;
 +    fixed_proxy.proxy_rules().ParseFromString(proxy_uri);
 +    fixed_proxy.proxy_rules().bypass_rules.Clear();
@@ -18,118 +24,295 @@
 +    network_context_params->initial_proxy_config->value() = fixed_proxy;
 +  }
  }
+ 
+ void ProxyConfigMonitor::FlushForTesting() {
 --- a/chrome/browser/net/profile_network_context_service.cc
 +++ b/chrome/browser/net/profile_network_context_service.cc
-@@ -5,2 +5,3 @@
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
  #include "chrome/browser/net/profile_network_context_service.h"
-
 +#include "base/fp_config/fp_config.h"
-@@ -896,4 +897,8 @@ void ProfileNetworkContextService::DisableQuicIfNotAllowed() {
-   if (!profile_->GetPrefs()->GetBoolean(prefs::kQuicAllowed)) {
-     g_browser_process->system_network_context_manager()->DisableQuic();
-   }
-+  if (fp_config::WebRtcProxyUdp() || fp_config::ProxyConfigured()) {
-+    // Avoid HTTP/3/QUIC direct UDP leakage when a profile requires SOCKS5.
-+    g_browser_process->system_network_context_manager()->DisableQuic();
-+  }
+ 
+ #include <memory>
+ #include <string>
+@@ -682,6 +683,11 @@
  }
+ 
+ void ProfileNetworkContextService::DisableQuicIfNotAllowed() {
++  if (fp_config::WebRtcProxyUdp() || fp_config::ProxyConfigured()) {
++    g_browser_process->system_network_context_manager()->DisableQuic();
++    return;
++  }
++
+   if (!quic_allowed_.IsManaged()) {
+     return;
+   }
 --- a/services/network/network_context.cc
 +++ b/services/network/network_context.cc
-@@ -5,2 +5,3 @@
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
  #include "services/network/network_context.h"
-
 +#include "base/fp_config/fp_config.h"
-@@ -1761,4 +1762,9 @@ void NetworkContext::CreateUDPSocket(
+ 
+ #include <algorithm>
+ #include <memory>
+@@ -1971,6 +1972,11 @@
+ void NetworkContext::CreateUDPSocket(
      mojo::PendingReceiver<mojom::UDPSocket> receiver,
      mojo::PendingRemote<mojom::UDPSocketListener> listener) {
-+  if (fp_config::WebRtcProxyUdp() && !fp_config::ProxyConfigured()) {
++  if (fp_config::WebRtcProxyUdp()) {
 +    receiver.reset();
 +    listener.reset();
 +    return;
 +  }
    socket_factory_->CreateUDPSocket(std::move(receiver), std::move(listener));
  }
+ 
 --- a/net/socket/udp_socket_win.cc
 +++ b/net/socket/udp_socket_win.cc
-@@ -3,5 +3,6 @@
+@@ -3,6 +3,7 @@
  // found in the LICENSE file.
  
  #include "net/socket/udp_socket_win.h"
 +#include "base/fp_config/fp_config.h"
  
  #include <winsock2.h>
-@@ -528,6 +529,12 @@
-  CHECK(write_callback_.is_null());
-  DCHECK(!callback.is_null());  // Synchronous operation not supported.
-  DCHECK_GT(buf_len, 0);
+ 
+@@ -523,6 +524,9 @@
+                                 int buf_len,
+                                 const IPEndPoint* address,
+                                 CompletionOnceCallback callback) {
 +  if (fp_config::WebRtcProxyUdp()) {
-+    // SOCKS5 UDP ASSOCIATE support is mandatory for proxy UDP mode. Until the
-+    // association is established by the Network Service, direct UDP is blocked
-+    // instead of falling back to the host interface.
 +    return ERR_PROXY_CONNECTION_FAILED;
 +  }
-  DCHECK(!send_to_address_.get());
- 
-  int nwrite = core_ ? InternalSendToOverlapped(buf, buf_len, address)
+   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+   DCHECK_NE(INVALID_SOCKET, socket_);
+   CHECK(write_callback_.is_null());
 --- a/services/network/p2p/socket_udp.cc
 +++ b/services/network/p2p/socket_udp.cc
-@@ -5,2 +5,3 @@
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
  #include "services/network/p2p/socket_udp.h"
-
 +#include "base/fp_config/fp_config.h"
-@@ -465,6 +465,9 @@
+ 
+ #include <tuple>
+ 
+@@ -465,6 +466,9 @@
  
  bool P2PSocketUdp::DoSendToSocket(const P2PPendingPacket& packet,
                                    int64_t send_time_ms) {
-+  if (fp_config::WebRtcProxyUdp() && !fp_config::ProxyConfigured()) {
++  if (fp_config::WebRtcProxyUdp()) {
 +    return false;
 +  }
    CHECK(!send_pending_);
  
    auto callback_binding = base::BindRepeating(
---- /dev/null
-+++ b/net/socket/fp_socks5_udp_client.h
-@@ -0,0 +1,43 @@
-+// Copyright 2026 The Chromium Authors
-+// Use of this source code is governed by a BSD-style license that can be
-+// found in the LICENSE file.
+--- a/net/socket/socks5_client_socket.h
++++ b/net/socket/socks5_client_socket.h
+@@ -28,7 +28,7 @@
+ class GrowableIOBuffer;
+ 
+ // This StreamSocket is used to setup a SOCKSv5 handshake with a socks proxy.
+-// Currently no SOCKSv5 authentication is supported.
++// The fp_config profile may provide RFC 1929 username/password credentials.
+ class NET_EXPORT_PRIVATE SOCKS5ClientSocket : public StreamSocket {
+  public:
+   // |destination| contains the hostname and port to which the socket above will
+@@ -82,6 +82,10 @@
+     STATE_GREET_WRITE_COMPLETE,
+     STATE_GREET_READ,
+     STATE_GREET_READ_COMPLETE,
++    STATE_AUTH_WRITE,
++    STATE_AUTH_WRITE_COMPLETE,
++    STATE_AUTH_READ,
++    STATE_AUTH_READ_COMPLETE,
+     STATE_HANDSHAKE_WRITE,
+     STATE_HANDSHAKE_WRITE_COMPLETE,
+     STATE_HANDSHAKE_READ,
+@@ -99,7 +103,9 @@
+   static const unsigned int kGreetReadHeaderSize;
+   static const unsigned int kWriteHeaderSize;
+   static const unsigned int kReadHeaderSize;
++  static const unsigned int kAuthReadHeaderSize;
+   static const uint8_t kSOCKS5Version;
++  static const uint8_t kAuthVersion;
+   static const uint8_t kTunnelCommand;
+   static const uint8_t kNullByte;
+ 
+@@ -116,6 +122,13 @@
+   int DoGreetReadComplete(int result);
+   int DoGreetWrite();
+   int DoGreetWriteComplete(int result);
++  int DoAuthRead();
++  int DoAuthReadComplete(int result);
++  int DoAuthWrite();
++  int DoAuthWriteComplete(int result);
 +
-+#ifndef NET_SOCKET_FP_SOCKS5_UDP_CLIENT_H_
-+#define NET_SOCKET_FP_SOCKS5_UDP_CLIENT_H_
-+
-+#include <stdint.h>
-+
-+#include <string>
++  // Creates a DrainableIOBuffer containing the SOCKS username/password auth.
++  scoped_refptr<DrainableIOBuffer> BuildAuthWriteBuffer() const;
+ 
+   // Creates a DrainableIOBuffer containing the SOCKS handshake.
+   scoped_refptr<DrainableIOBuffer> BuildHandshakeWriteBuffer() const;
+--- a/net/socket/socks5_client_socket.cc
++++ b/net/socket/socks5_client_socket.cc
+@@ -8,8 +8,10 @@
+ 
+ #include <array>
+ #include <utility>
 +#include <vector>
-+
-+#include "net/base/ip_endpoint.h"
-+
-+namespace net {
-+namespace fp_socks5_udp {
-+
-+inline std::vector<uint8_t> BuildUdpAssociatePacket(
-+    const IPEndPoint& target,
-+    base::span<const uint8_t> payload) {
-+  std::vector<uint8_t> packet;
-+  packet.push_back(0x00);
-+  packet.push_back(0x00);
-+  packet.push_back(0x00);
-+  if (target.address().IsIPv4()) {
-+    packet.push_back(0x01);
-+  } else if (target.address().IsIPv6()) {
-+    packet.push_back(0x04);
-+  } else {
-+    return {};
+ 
+ #include "base/compiler_specific.h"
++#include "base/fp_config/fp_config.h"
+ #include "base/format_macros.h"
+ #include "base/functional/bind.h"
+ #include "base/functional/callback_helpers.h"
+@@ -28,7 +30,9 @@
+ const unsigned int SOCKS5ClientSocket::kGreetReadHeaderSize = 2;
+ const unsigned int SOCKS5ClientSocket::kWriteHeaderSize = 10;
+ const unsigned int SOCKS5ClientSocket::kReadHeaderSize = 5;
++const unsigned int SOCKS5ClientSocket::kAuthReadHeaderSize = 2;
+ const uint8_t SOCKS5ClientSocket::kSOCKS5Version = 0x05;
++const uint8_t SOCKS5ClientSocket::kAuthVersion = 0x01;
+ const uint8_t SOCKS5ClientSocket::kTunnelCommand = 0x01;
+ const uint8_t SOCKS5ClientSocket::kNullByte = 0x00;
+ 
+@@ -224,6 +228,20 @@
+         net_log_.EndEventWithNetErrorCode(NetLogEventType::SOCKS5_GREET_READ,
+                                           rv);
+         break;
++      case STATE_AUTH_WRITE:
++        DCHECK_EQ(OK, rv);
++        rv = DoAuthWrite();
++        break;
++      case STATE_AUTH_WRITE_COMPLETE:
++        rv = DoAuthWriteComplete(rv);
++        break;
++      case STATE_AUTH_READ:
++        DCHECK_EQ(OK, rv);
++        rv = DoAuthRead();
++        break;
++      case STATE_AUTH_READ_COMPLETE:
++        rv = DoAuthReadComplete(rv);
++        break;
+       case STATE_HANDSHAKE_WRITE:
+         DCHECK_EQ(OK, rv);
+         net_log_.BeginEvent(NetLogEventType::SOCKS5_HANDSHAKE_WRITE);
+@@ -251,9 +269,6 @@
+   return rv;
+ }
+ 
+-static constexpr std::array<uint8_t, 3> kSOCKS5GreetWriteData{
+-    0x05, 0x01, 0x00};  // no authentication
+-
+ int SOCKS5ClientSocket::DoGreetWrite() {
+   // Since we only have 1 byte to send the hostname length in, if the
+   // URL has a hostname longer than 255 characters we can't send it.
+@@ -263,8 +278,11 @@
+   }
+ 
+   if (!write_buf_) {
++    std::vector<uint8_t> greeting = fp_config::ProxyHasCredentials()
++                                        ? std::vector<uint8_t>{0x05, 0x02, 0x00, 0x02}
++                                        : std::vector<uint8_t>{0x05, 0x01, 0x00};
+     auto greet_buffer =
+-        base::MakeRefCounted<WrappedIOBuffer>(kSOCKS5GreetWriteData);
++        base::MakeRefCounted<VectorIOBuffer>(std::move(greeting));
+     write_buf_ = base::MakeRefCounted<DrainableIOBuffer>(
+         std::move(greet_buffer), greet_buffer->size());
+   }
+@@ -323,12 +341,92 @@
+                                    "version", read_data[0]);
+     return ERR_SOCKS_CONNECTION_FAILED;
+   }
++  if (read_data[1] == 0x02 && fp_config::ProxyHasCredentials()) {
++    read_buf_.reset();
++    next_state_ = STATE_AUTH_WRITE;
++    return OK;
 +  }
-+  const auto bytes = target.address().bytes();
-+  packet.insert(packet.end(), bytes.begin(), bytes.end());
-+  packet.push_back(static_cast<uint8_t>((target.port() >> 8) & 0xff));
-+  packet.push_back(static_cast<uint8_t>(target.port() & 0xff));
-+  packet.insert(packet.end(), payload.begin(), payload.end());
-+  return packet;
+   if (read_data[1] != 0x00) {
+     net_log_.AddEventWithIntParams(NetLogEventType::SOCKS_UNEXPECTED_AUTH,
+                                    "method", read_data[1]);
+     return ERR_SOCKS_CONNECTION_FAILED;
+   }
+ 
++  read_buf_.reset();
++  next_state_ = STATE_HANDSHAKE_WRITE;
++  return OK;
 +}
 +
-+}  // namespace fp_socks5_udp
-+}  // namespace net
++scoped_refptr<DrainableIOBuffer> SOCKS5ClientSocket::BuildAuthWriteBuffer() const {
++  const std::string username = fp_config::ProxyUsername();
++  const std::string password = fp_config::ProxyPassword();
++  if (username.size() > 255 || password.size() > 255) {
++    return nullptr;
++  }
++  std::vector<uint8_t> auth;
++  auth.reserve(3 + username.size() + password.size());
++  auth.push_back(kAuthVersion);
++  auth.push_back(static_cast<uint8_t>(username.size()));
++  auth.insert(auth.end(), username.begin(), username.end());
++  auth.push_back(static_cast<uint8_t>(password.size()));
++  auth.insert(auth.end(), password.begin(), password.end());
++  auto base_buffer = base::MakeRefCounted<VectorIOBuffer>(std::move(auth));
++  return base::MakeRefCounted<DrainableIOBuffer>(std::move(base_buffer),
++                                                 base_buffer->size());
++}
 +
-+#endif  // NET_SOCKET_FP_SOCKS5_UDP_CLIENT_H_
++int SOCKS5ClientSocket::DoAuthWrite() {
++  if (!write_buf_) {
++    write_buf_ = BuildAuthWriteBuffer();
++    if (!write_buf_) {
++      return ERR_INVALID_ARGUMENT;
++    }
++  }
++  next_state_ = STATE_AUTH_WRITE_COMPLETE;
++  return transport_socket_->Write(write_buf_.get(), write_buf_->BytesRemaining(),
++                                  io_callback_, traffic_annotation_);
++}
++
++int SOCKS5ClientSocket::DoAuthWriteComplete(int result) {
++  if (result < 0) {
++    return result;
++  }
++  write_buf_->DidConsume(result);
++  if (write_buf_->BytesRemaining() == 0) {
++    write_buf_.reset();
++    next_state_ = STATE_AUTH_READ;
++  } else {
++    next_state_ = STATE_AUTH_WRITE;
++  }
++  return OK;
++}
++
++int SOCKS5ClientSocket::DoAuthRead() {
++  next_state_ = STATE_AUTH_READ_COMPLETE;
++  if (!read_buf_) {
++    read_buf_ = base::MakeRefCounted<GrowableIOBuffer>();
++    read_buf_->SetCapacity(kAuthReadHeaderSize);
++  }
++  return transport_socket_->Read(read_buf_.get(), read_buf_->RemainingCapacity(),
++                                 io_callback_);
++}
++
++int SOCKS5ClientSocket::DoAuthReadComplete(int result) {
++  if (result < 0) {
++    return result;
++  }
++  if (result == 0) {
++    return ERR_SOCKS_CONNECTION_FAILED;
++  }
++  read_buf_->set_offset(read_buf_->offset() + result);
++  if (read_buf_->RemainingCapacity() > 0) {
++    next_state_ = STATE_AUTH_READ;
++    return OK;
++  }
++  base::span<uint8_t> read_data = read_buf_->span_before_offset();
++  if (read_data[0] != kAuthVersion || read_data[1] != 0x00) {
++    return ERR_SOCKS_CONNECTION_FAILED;
++  }
+   read_buf_.reset();
+   next_state_ = STATE_HANDSHAKE_WRITE;
+   return OK;
