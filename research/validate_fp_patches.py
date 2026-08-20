@@ -119,7 +119,9 @@ if len(timeouts) != 24 or any(value != "360" for value in timeouts):
 require(prepare, "httplib2", "prepare action")
 require(prepare, "PySocks", "prepare action")
 require(stage, "ignoreReturnCode", "stage action")
+require(stage, "-mmt=2", "stage archive resource guard")
 require(stage_dist, "ignoreReturnCode", "stage dist action")
+require(stage_dist, "-mmt=2", "stage dist archive resource guard")
 require(reusable_build, "actions/cache@v5", "reusable build")
 
 print(f"validated {len(patches)} fp-browser patches")

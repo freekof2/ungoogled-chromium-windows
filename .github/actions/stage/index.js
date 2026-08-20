@@ -73,7 +73,7 @@ async function run() {
     } else if (retCode === BUILD_INTERRUPTED_EXIT_CODE) {
         await new Promise(r => setTimeout(r, 5000));
         const archiveRetCode = await exec.exec('7z', ['a', '-tzip', 'C:\\ungoogled-chromium-windows\\artifacts.zip',
-            'C:\\ungoogled-chromium-windows\\build\\src', '-mx=3', '-mtc=on'], {
+            'C:\\ungoogled-chromium-windows\\build\\src', '-mx=3', '-mmt=2', '-mtc=on'], {
             ignoreReturnCode: true
         });
         if (archiveRetCode > 1)

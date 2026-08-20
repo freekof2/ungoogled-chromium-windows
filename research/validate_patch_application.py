@@ -5,7 +5,9 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 import urllib.request
+from urllib.error import HTTPError
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,8 +16,19 @@ URL = "https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.71/
 
 
 def download(path: str) -> bytes:
-    with urllib.request.urlopen(URL.format(path=path), timeout=60) as response:
-        return base64.b64decode(response.read())
+    request = urllib.request.Request(
+        URL.format(path=path),
+        headers={"User-Agent": "fp-browser-patch-validator/1.0"},
+    )
+    for attempt in range(5):
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                return base64.b64decode(response.read())
+        except HTTPError as exc:
+            if exc.code not in {429, 500, 502, 503, 504} or attempt == 4:
+                raise
+            time.sleep(2 ** attempt)
+    raise RuntimeError(f"unreachable download retry state for {path}")
 
 
 patches = sorted(PATCH_DIR.glob("*.patch"))
