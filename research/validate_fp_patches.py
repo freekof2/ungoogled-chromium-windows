@@ -112,6 +112,7 @@ forbid(all_patches, "FromUTF8(", "all patches")
 prepare = read(ROOT / ".github" / "actions" / "prepare" / "action.yml")
 stage = read(ROOT / ".github" / "actions" / "stage" / "index.js")
 stage_dist = read(ROOT / ".github" / "actions" / "stage" / "dist" / "index.js")
+stage_action = read(ROOT / ".github" / "actions" / "stage" / "action.yml")
 reusable_build = read(ROOT / ".github" / "workflows" / "reusable-build.yml")
 timeouts = re.findall(r"^\s*timeout-minutes:\s*(\d+)\s*$", reusable_build, re.MULTILINE)
 if len(timeouts) != 24 or any(value != "360" for value in timeouts):
@@ -122,6 +123,9 @@ require(stage, "ignoreReturnCode", "stage action")
 require(stage, "-mmt=2", "stage archive resource guard")
 require(stage_dist, "ignoreReturnCode", "stage dist action")
 require(stage_dist, "-mmt=2", "stage dist archive resource guard")
+require(stage_action, "default: '1'", "stage action build-jobs default")
+if not re.search(r"build-jobs:\s*\n\s+type: string\s*\n\s+required: false\s*\n\s+default: '1'", reusable_build):
+    fail("reusable build: build-jobs default must be 1")
 require(reusable_build, "actions/cache@v5", "reusable build")
 
 print(f"validated {len(patches)} fp-browser patches")

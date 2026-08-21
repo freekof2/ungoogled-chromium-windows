@@ -18,7 +18,7 @@ inputs:
   build-jobs:
     description: Number of Ninja build jobs
     required: false
-    default: '2'
+    default: '1'
   stage:
     description: Current checkpoint stage number
     required: true
