@@ -54,7 +54,7 @@
  #include "base/memory/scoped_refptr.h"
  #include "base/metrics/histogram_functions.h"
  #include "base/metrics/histogram_macros.h"
-@@ -5346,6 +5348,16 @@
+@@ -5346,6 +5348,17 @@
        return;
      }
      ContextGL()->ReadPixels(x, y, width, height, format, type, data);
@@ -64,7 +64,8 @@
 +      noise_size *= 4;
 +      if (noise_size.IsValid()) {
 +        const size_t safe_size = std::min(
-+            noise_size.ValueOrDie(), static_cast<size_t>(buffer_size.ValueOrDie()));
++            static_cast<size_t>(noise_size.ValueOrDie()),
++            static_cast<size_t>(buffer_size.ValueOrDie()));
 +        fp_noise::InjectBytes(data, safe_size, 0x57474c);
 +      }
 +    }
