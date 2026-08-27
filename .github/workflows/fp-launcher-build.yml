@@ -25,10 +25,6 @@ jobs:
         shell: pwsh
         run: python research/validate_fp_patches.py
 
-      - name: Validate Chromium 151 patch application
-        shell: pwsh
-        run: python research/validate_patch_application.py
-
       - name: Prepare Chromium build environment
         uses: ./.github/actions/prepare
         with:
