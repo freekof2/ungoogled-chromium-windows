@@ -351,6 +351,9 @@ def main():
             # This path is a C++-only targeted compile validation. It avoids
             # downloading and merging the multi-architecture Rust toolchains.
             windows_flags += 'enable_rust=false\n'
+            # Chromium 151 imports PDFium fuzzers from the root build graph;
+            # its Rust PNG feature must be disabled together with Rust.
+            windows_flags += 'pdf_enable_rust_png=false\n'
         gn_flags += windows_flags
         (source_tree / 'out/Default/args.gn').write_text(gn_flags, encoding=ENCODING)
 
