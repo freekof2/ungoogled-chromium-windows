@@ -294,8 +294,13 @@ def main():
         # Directories to copy from source to target folder
         DIRS_TO_COPY = ['bin', 'lib']
 
-        # Loop over all source folders
-        for rust_dir_src in [RUST_DIR_SRC64, RUST_DIR_SRC86, RUST_DIR_SRCARM]:
+        # A targeted x64 Ninja build does not need foreign-architecture Rust
+        # standard libraries. Avoid copying them on disk-constrained CI runners.
+        rust_source_dirs = [RUST_DIR_SRC64] if args.targets else [
+            RUST_DIR_SRC64, RUST_DIR_SRC86, RUST_DIR_SRCARM
+        ]
+        # Loop over all required source folders.
+        for rust_dir_src in rust_source_dirs:
             # Loop over all dirs to copy
             for dir_to_copy in DIRS_TO_COPY:
                 # Copy bin folder for host architecture
@@ -346,7 +351,8 @@ def main():
         # Run gn gen
         _run_build_process('out\\Default\\gn.exe', 'gen', 'out\\Default', '--fail-on-unused-args')
 
-    if not args.ci or not os.path.exists('third_party\\rust-toolchain\\bin\\bindgen.exe'):
+    if (not args.targets and
+            (not args.ci or not os.path.exists('third_party\\rust-toolchain\\bin\\bindgen.exe'))):
         # Build bindgen
         _run_build_process(
             sys.executable,
