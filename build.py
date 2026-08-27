@@ -205,9 +205,18 @@ def main():
         # Retrieve windows downloads (with retry for network resilience)
         get_logger().info('Downloading required files...')
         download_info_win = downloads.DownloadInfo([_ROOT_DIR / 'downloads.ini'])
+        target_download_components = None
+        if args.targets:
+            # Target mode disables Rust in args.gn, so no Rust package is needed
+            # to bootstrap GN or compile the selected C++ object. Avoid extracting
+            # all three large Rust toolchains on disk-constrained CI runners.
+            target_download_components = [
+                name for name in download_info_win if not name.startswith('rust-')
+            ]
         for attempt in range(3):
             try:
-                downloads.retrieve_downloads(download_info_win, downloads_cache, None, True,
+                downloads.retrieve_downloads(download_info_win, downloads_cache,
+                                             target_download_components, True,
                                              args.disable_ssl_verification)
                 break
             except subprocess.CalledProcessError as exc:
@@ -221,7 +230,8 @@ def main():
                     get_logger().error('All download attempts failed.')
                     raise
         try:
-            downloads.check_downloads(download_info_win, downloads_cache, None)
+            downloads.check_downloads(download_info_win, downloads_cache,
+                                      target_download_components)
         except downloads.HashMismatchError as exc:
             get_logger().error('File checksum does not match: %s', exc)
             exit(1)
@@ -246,7 +256,8 @@ def main():
             shutil.rmtree(ESBUILD)
             ESBUILD.mkdir()
         get_logger().info('Unpacking downloads...')
-        downloads.unpack_downloads(download_info_win, downloads_cache, None, source_tree, extractors)
+        downloads.unpack_downloads(download_info_win, downloads_cache,
+                                   target_download_components, source_tree, extractors)
 
         # Apply patches
         # First, ungoogled-chromium-patches
