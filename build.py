@@ -147,6 +147,12 @@ def main():
         '--tarball',
         action='store_true'
     )
+    parser.add_argument(
+        '--target',
+        dest='targets',
+        action='append',
+        help=('Ninja target to build instead of the default release targets. '
+              'May be specified more than once.'))
     args = parser.parse_args()
 
     # Set common variables
@@ -353,9 +359,12 @@ def main():
         ninja_commandline.append(args.thread_count)
     ninja_commandline.append('-C')
     ninja_commandline.append('out\\Default')
-    ninja_commandline.append('chrome')
-    ninja_commandline.append('chromedriver')
-    ninja_commandline.append('mini_installer')
+    if args.targets:
+        ninja_commandline.extend(args.targets)
+    else:
+        ninja_commandline.append('chrome')
+        ninja_commandline.append('chromedriver')
+        ninja_commandline.append('mini_installer')
 
     # Run ninja
     if args.ci:
@@ -363,9 +372,10 @@ def main():
             _run_build_process_timeout(*ninja_commandline, timeout=3.5*60*60)
         except KeyboardInterrupt:
             sys.exit(_CI_STAGE_TIMEOUT_EXIT_CODE)
-        # package
-        os.chdir(_ROOT_DIR)
-        subprocess.run([sys.executable, 'package.py', '--cpu-arch', '32bit' if args.x86 else 'arm' if args.arm else '64bit'])
+        # Packaging only applies to the default release target set.
+        if not args.targets:
+            os.chdir(_ROOT_DIR)
+            subprocess.run([sys.executable, 'package.py', '--cpu-arch', '32bit' if args.x86 else 'arm' if args.arm else '64bit'])
     else:
         _run_build_process(*ninja_commandline)
 

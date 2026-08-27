@@ -40,6 +40,7 @@ public sealed class ChromiumPatchCoverageTests
     public void RegressionGuards_PreviousCompilerAndPatchFixesRemainPresent()
     {
         var patches = ReadFingerprintPatches();
+        var patch03 = ReadPatch("03-timezone-geolocation-language.patch");
         var patch05 = ReadPatch("05-noise-injection-framework.patch");
         var patch06 = ReadPatch("06-webgl-webgpu-metadata.patch");
         var patch11 = ReadPatch("11-udp-over-socks5.patch");
@@ -48,6 +49,11 @@ public sealed class ChromiumPatchCoverageTests
         var stageDist = ReadRepositoryFile(Path.Combine(".github", "actions", "stage", "dist", "index.js"));
         var reusableBuild = ReadRepositoryFile(Path.Combine(".github", "workflows", "reusable-build.yml"));
 
+        Assert.Contains("content::PermissionResult(", patch03);
+        Assert.Contains("blink::mojom::PermissionStatus::DENIED", patch03);
+        Assert.Contains("blink::mojom::PermissionStatus::GRANTED", patch03);
+        Assert.DoesNotContain("Run(CONTENT_SETTING_BLOCK)", patch03);
+        Assert.DoesNotContain("Run(CONTENT_SETTING_ALLOW)", patch03);
         Assert.Contains("RawByteSpan()", patch05);
         Assert.DoesNotContain("image_data->data()->Data()", patch05);
         Assert.DoesNotContain("image_data->data()->length()", patch05);
