@@ -290,7 +290,7 @@ def main():
     RUST_DIR_SRC86 = source_tree / 'third_party' / 'rust-toolchain-x86'
     RUST_DIR_SRCARM = source_tree / 'third_party' / 'rust-toolchain-arm'
     RUST_FLAG_FILE = RUST_DIR_DST / 'INSTALLED_VERSION'
-    if not args.ci or not RUST_FLAG_FILE.exists():
+    if not args.targets and (not args.ci or not RUST_FLAG_FILE.exists()):
         # Directories to copy from source to target folder
         DIRS_TO_COPY = ['bin', 'lib']
 
@@ -334,8 +334,12 @@ def main():
             windows_flags = windows_flags.replace('x64', 'x86')
         elif args.arm:
             windows_flags = windows_flags.replace('x64', 'arm64')
-        if args.tarball:
+        if args.tarball or args.targets:
             windows_flags += '\nchrome_pgo_phase=0\n'
+        if args.targets:
+            # This path is a C++-only targeted compile validation. It avoids
+            # downloading and merging the multi-architecture Rust toolchains.
+            windows_flags += 'enable_rust=false\n'
         gn_flags += windows_flags
         (source_tree / 'out/Default/args.gn').write_text(gn_flags, encoding=ENCODING)
 
