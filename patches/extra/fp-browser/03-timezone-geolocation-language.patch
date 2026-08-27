@@ -88,15 +88,17 @@
 +#include "base/fp_config/fp_config.h"
  #include <variant>
  
-@@ -52,4 +53,12 @@
+@@ -52,4 +53,14 @@
      BrowserPermissionCallback callback) {
    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 +  if (fp_config::GeolocationDisabled()) {
-+    std::move(callback).Run(CONTENT_SETTING_BLOCK);
++    std::move(callback).Run(content::PermissionResult(
++        blink::mojom::PermissionStatus::DENIED));
 +    return;
 +  }
 +  if (fp_config::GeolocationAlwaysAllow()) {
-+    std::move(callback).Run(CONTENT_SETTING_ALLOW);
++    std::move(callback).Run(content::PermissionResult(
++        blink::mojom::PermissionStatus::GRANTED));
 +    return;
 +  }
  
