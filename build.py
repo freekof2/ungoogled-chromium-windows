@@ -30,6 +30,21 @@ _ROOT_DIR = Path(__file__).resolve().parent
 _PATCH_BIN_RELPATH = Path('third_party/git/usr/bin/patch.exe')
 _CI_STAGE_TIMEOUT_EXIT_CODE = 2
 
+# Ninja must share the 6-hour GitHub job budget with the checkpoint download/unzip
+# that happened before it and the 7z + upload that come after.  Observed on
+# build-8: 9 min download + 1h41m unzip consumed the stage before ninja even ran,
+# yet ninja still claimed a hardcoded 3.5h, so the job was killed mid-upload.
+_PROCESS_START_MONOTONIC = time.monotonic()
+_CI_JOB_BUDGET_SECONDS = 6 * 60 * 60          # GitHub hosted runner limit
+_CI_POST_NINJA_RESERVE_SECONDS = 100 * 60     # 7z + upload for 13 GB tree
+_CI_MIN_NINJA_SECONDS = 60 * 60               # always allow ninja at least 1h
+
+
+def _ninja_timeout_seconds():
+    """Return the dynamic ninja budget for the current CI stage."""
+    elapsed = time.monotonic() - _PROCESS_START_MONOTONIC
+    budget = _CI_JOB_BUDGET_SECONDS - _CI_POST_NINJA_RESERVE_SECONDS - elapsed
+    return max(_CI_MIN_NINJA_SECONDS, budget)
 
 def _get_vcvars_path(name='64'):
     """
@@ -392,8 +407,13 @@ def main():
 
     # Run ninja
     if args.ci:
+        ninja_timeout = _ninja_timeout_seconds()
+        print(
+            'CI stage: elapsed %.0fs before ninja, ninja budget %.0fs (%.1fh)'
+            % (time.monotonic() - _PROCESS_START_MONOTONIC, ninja_timeout,
+               ninja_timeout / 3600.0))
         try:
-            _run_build_process_timeout(*ninja_commandline, timeout=3.5*60*60)
+            _run_build_process_timeout(*ninja_commandline, timeout=ninja_timeout)
         except KeyboardInterrupt:
             sys.exit(_CI_STAGE_TIMEOUT_EXIT_CODE)
         # Packaging only applies to the default release target set.
