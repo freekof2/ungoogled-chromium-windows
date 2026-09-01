@@ -142472,6 +142472,7 @@ function glob_hashFiles(patterns_1) {
 const BUILD_INTERRUPTED_EXIT_CODE = 2;
 
 async function run() {
+    const stageStartMs = Date.now();
     process.on('SIGINT', function() {
     })
     const finished = getBooleanInput('finished', {required: true});
@@ -142500,7 +142501,16 @@ async function run() {
         await rmRF('C:\\ungoogled-chromium-windows\\build\\artifacts.zip');
     }
 
-    const args = ['build.py', '--ci', '-j', buildJobs]
+    // Dynamic ninja budget: account for time already spent in this job
+    const CI_JOB_BUDGET_SECONDS = 6 * 60 * 60;
+    const CI_POST_NINJA_RESERVE_SECONDS = 110 * 60;
+    const CI_MIN_NINJA_SECONDS = 60 * 60;
+    const elapsedBeforeNinjaSec = Math.floor((Date.now() - stageStartMs) / 1000);
+    let ninjaTimeoutSec = CI_JOB_BUDGET_SECONDS - CI_POST_NINJA_RESERVE_SECONDS - elapsedBeforeNinjaSec;
+    ninjaTimeoutSec = Math.max(CI_MIN_NINJA_SECONDS, ninjaTimeoutSec);
+    console.log(`Stage wall-clock: elapsed ${elapsedBeforeNinjaSec}s before ninja, giving ninja ${ninjaTimeoutSec}s (${(ninjaTimeoutSec/3600).toFixed(1)}h) budget (reserve ${CI_POST_NINJA_RESERVE_SECONDS}s)`);
+
+    const args = ['build.py', '--ci', '-j', buildJobs, '--ci-ninja-timeout', String(ninjaTimeoutSec)]
     if (x86)
         args.push('--x86')
     if (arm)
@@ -142538,7 +142548,7 @@ async function run() {
     } else if (retCode === BUILD_INTERRUPTED_EXIT_CODE) {
         await new Promise(r => setTimeout(r, 5000));
         const archiveRetCode = await exec_exec('7z', ['a', '-tzip', 'C:\\ungoogled-chromium-windows\\artifacts.zip',
-            'C:\\ungoogled-chromium-windows\\build\\src', '-mx=3', '-mmt=2', '-mtc=on'], {
+            'C:\\ungoogled-chromium-windows\\build\\src', '-mx=1', '-mmt=on', '-mtc=on'], {
             ignoreReturnCode: true
         });
         if (archiveRetCode > 1)

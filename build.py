@@ -34,14 +34,36 @@ _CI_STAGE_TIMEOUT_EXIT_CODE = 2
 # that happened before it and the 7z + upload that come after.  Observed on
 # build-8: 9 min download + 1h41m unzip consumed the stage before ninja even ran,
 # yet ninja still claimed a hardcoded 3.5h, so the job was killed mid-upload.
+# The JS stage action now computes wall-clock elapsed before ninja and passes it
+# via --ci-ninja-timeout so that download/unzip time is accounted for.
 _PROCESS_START_MONOTONIC = time.monotonic()
 _CI_JOB_BUDGET_SECONDS = 6 * 60 * 60          # GitHub hosted runner limit
-_CI_POST_NINJA_RESERVE_SECONDS = 100 * 60     # 7z + upload for 13 GB tree
+_CI_POST_NINJA_RESERVE_SECONDS = 110 * 60     # 7z + upload for 13 GB tree
 _CI_MIN_NINJA_SECONDS = 60 * 60               # always allow ninja at least 1h
+_CI_NINJA_TIMEOUT_ENV = 'STAGE_NINJA_TIMEOUT' # alternative env var set by JS
 
 
-def _ninja_timeout_seconds():
-    """Return the dynamic ninja budget for the current CI stage."""
+def _ninja_timeout_seconds(external_timeout=None):
+    """Return the dynamic ninja budget for the current CI stage.
+
+    If external_timeout (int seconds) is provided by the JS stage action,
+    it already accounts for job elapsed before ninja, so use it directly
+    (clamped to minimum). Otherwise fall back to monotonic elapsed inside
+    this process.
+    """
+    if external_timeout is not None:
+        try:
+            t = int(external_timeout)
+            return max(_CI_MIN_NINJA_SECONDS, t)
+        except (ValueError, TypeError):
+            pass
+    env_val = os.environ.get(_CI_NINJA_TIMEOUT_ENV)
+    if env_val:
+        try:
+            t = int(env_val)
+            return max(_CI_MIN_NINJA_SECONDS, t)
+        except (ValueError, TypeError):
+            pass
     elapsed = time.monotonic() - _PROCESS_START_MONOTONIC
     budget = _CI_JOB_BUDGET_SECONDS - _CI_POST_NINJA_RESERVE_SECONDS - elapsed
     return max(_CI_MIN_NINJA_SECONDS, budget)
@@ -168,6 +190,12 @@ def main():
         action='append',
         help=('Ninja target to build instead of the default release targets. '
               'May be specified more than once.'))
+    parser.add_argument(
+        '--ci-ninja-timeout',
+        dest='ci_ninja_timeout',
+        type=int,
+        default=None,
+        help='Ninja timeout in seconds for CI (provided by stage action)')
     args = parser.parse_args()
 
     # Set common variables
@@ -407,11 +435,16 @@ def main():
 
     # Run ninja
     if args.ci:
-        ninja_timeout = _ninja_timeout_seconds()
-        print(
-            'CI stage: elapsed %.0fs before ninja, ninja budget %.0fs (%.1fh)'
-            % (time.monotonic() - _PROCESS_START_MONOTONIC, ninja_timeout,
-               ninja_timeout / 3600.0))
+        ninja_timeout = _ninja_timeout_seconds(args.ci_ninja_timeout)
+        python_elapsed = time.monotonic() - _PROCESS_START_MONOTONIC
+        if args.ci_ninja_timeout is not None:
+            print(
+                'CI stage: JS-provided ninja budget %ds (%.1fh), python_elapsed %.0fs'
+                % (ninja_timeout, ninja_timeout / 3600.0, python_elapsed))
+        else:
+            print(
+                'CI stage: elapsed %.0fs before ninja (fallback), ninja budget %.0fs (%.1fh)'
+                % (python_elapsed, ninja_timeout, ninja_timeout / 3600.0))
         try:
             _run_build_process_timeout(*ninja_commandline, timeout=ninja_timeout)
         except KeyboardInterrupt:
