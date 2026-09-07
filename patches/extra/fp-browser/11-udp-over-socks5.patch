@@ -20,8 +20,8 @@
 +    fixed_proxy.proxy_rules().ParseFromString(proxy_uri);
 +    fixed_proxy.proxy_rules().bypass_rules.Clear();
 +    network_context_params->initial_proxy_config =
-+        net::ProxyConfigWithAnnotation::CreateDirect();
-+    network_context_params->initial_proxy_config->value() = fixed_proxy;
++        net::ProxyConfigWithAnnotation(
++            fixed_proxy, proxy_config.traffic_annotation());
 +  }
  }
  
